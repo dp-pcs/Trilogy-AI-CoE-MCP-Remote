@@ -20,7 +20,7 @@ Before you begin, ensure you have the following installed:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/Trilogy-AI-CoE-MCP.git
+git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP.git
 cd Trilogy-AI-CoE-MCP
 
 # Install dependencies
@@ -171,6 +171,16 @@ chmod +x dist/index.js
 # Set DEBUG=true in your .env file, then test
 DEBUG=true npm test
 ```
+
+#### 5. "ReferenceError: ReadableStream is not defined" or similar web API errors
+
+**Solution**: This is automatically handled by the included polyfill, but if you encounter this:
+
+1. Ensure you're using Node.js 18+ 
+2. Verify the `src/polyfill.js` file exists
+3. Check that the polyfill import is the first line in `src/index.ts`
+
+This error typically occurs with the `cheerio` or `undici` dependencies that require web APIs not available in all Node.js environments.
 
 ### Debug Mode
 

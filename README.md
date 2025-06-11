@@ -16,13 +16,14 @@ The Model Context Protocol (MCP) is an open standard that enables AI assistants 
 - 🔌 **Universal Compatibility**: Works with any MCP-compatible AI assistant
 - ⚡ **Fast & Reliable**: Built-in caching and error handling
 - 🛠️ **Easy Setup**: Simple installation and configuration
+- 🔧 **Node.js Compatible**: Includes polyfills for web API compatibility
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
-git clone https://github.com/your-username/Trilogy-AI-CoE-MCP.git
+git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP.git
 cd Trilogy-AI-CoE-MCP
 npm install
 ```
@@ -153,7 +154,8 @@ npm run build
 ```
 Trilogy-AI-CoE-MCP/
 ├── src/
-│   └── index.ts          # Main server implementation
+│   ├── index.ts          # Main server implementation
+│   └── polyfill.js       # Node.js web API compatibility polyfill
 ├── dist/                 # Compiled JavaScript (generated)
 ├── package.json          # Dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
@@ -163,6 +165,10 @@ Trilogy-AI-CoE-MCP/
 ├── INSTALLATION.md       # Detailed installation guide
 └── DEMO_SCRIPT.md        # Demo recording script
 ```
+
+### Technical Notes
+
+**Node.js Compatibility**: This server includes a polyfill (`src/polyfill.js`) that provides web APIs (`ReadableStream`, `Blob`, `DOMException`) required by the `cheerio` and `undici` dependencies. This ensures compatibility across different Node.js environments and versions.
 
 ## Supported AI Assistants
 
