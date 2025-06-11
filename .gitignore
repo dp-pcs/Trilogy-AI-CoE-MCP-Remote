@@ -12,7 +12,7 @@ yarn-error.log*
 .env.production.local
 
 # Build output
-dist/
+# dist/ - Include dist for deployment
 build/
 
 # TypeScript
@@ -68,3 +68,7 @@ jspm_packages/
 
 # Yarn Integrity file
 .yarn-integrity 
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

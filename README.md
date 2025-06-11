@@ -1,183 +1,301 @@
-# AI CoE Trilogy MCP Server
+# AI CoE Trilogy MCP Remote Server
 
-A Model Context Protocol (MCP) server that connects to Substack feeds to provide AI assistants with access to articles, authors, and topics from the AI Center of Excellence at Trilogy.
+A **remote** Model Context Protocol (MCP) server that connects to Substack feeds to provide AI assistants with access to articles, authors, and topics from the AI Center of Excellence at Trilogy. This server runs as a web service that can be deployed to cloud platforms, eliminating the need for users to host the MCP server locally.
 
 ## What is MCP?
 
-The Model Context Protocol (MCP) is an open standard that enables AI assistants to securely connect to external data sources and tools. Instead of building custom integrations for each AI platform, MCP provides a universal interface that works across Claude Desktop, Cursor, Windsurf, and other MCP-compatible applications.
+The Model Context Protocol (MCP) is an open standard that enables AI assistants to securely connect to external data sources and tools. This remote server implementation provides HTTP endpoints that MCP-compatible applications can connect to over the internet.
 
 ## Features
 
+- 🌐 **Remote Access**: No local installation required - connect from anywhere
 - 📚 **List Articles**: Browse available articles from the Substack feed
 - 👥 **List Authors**: View all authors who have contributed content
 - 🏷️ **List Topics**: Explore articles by topic/category
 - 📖 **Read Articles**: Access full article content
 - 🔍 **Filter Content**: Search by author, topic, or keywords
-- 🔌 **Universal Compatibility**: Works with any MCP-compatible AI assistant
+- 🔌 **HTTP API**: RESTful endpoints for easy integration
 - ⚡ **Fast & Reliable**: Built-in caching and error handling
-- 🛠️ **Easy Setup**: Simple installation and configuration
+- 🚀 **Cloud Ready**: Designed for AWS Elastic Beanstalk, Docker, and other platforms
 - 🔧 **Node.js Compatible**: Includes polyfills for web API compatibility
 
-## Quick Start
+## Quick Start (Using the Remote Server)
 
-### 1. Install Dependencies
+### For AI Assistant Users
 
-```bash
-git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP.git
-cd Trilogy-AI-CoE-MCP
-npm install
-```
-
-### 2. Build the Server
-
-```bash
-npm run build
-```
-
-### 3. Test the Installation
-
-```bash
-npm test
-```
-
-### 4. Configure Your AI Assistant
-
-Add this configuration to your AI assistant's MCP settings:
+If someone has already deployed this server, you can connect to it directly:
 
 ```json
 {
   "mcpServers": {
-    "trilogy-ai-coe": {
-      "command": "node",
-      "args": ["/path/to/your/Trilogy-AI-CoE-MCP/dist/index.js"],
-      "env": {
-        "SUBSTACK_FEED_URL": "https://trilogyai.substack.com"
-      }
+    "trilogy-ai-coe-remote": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-fetch", "https://your-deployed-server.com"]
     }
   }
 }
 ```
 
-### 5. Start Using
+### For Server Deployment
 
-Ask your AI assistant:
-- "List the latest articles from the AI CoE"
-- "Show me all authors"
-- "What topics are covered?"
-- "Read the article about [topic]"
+## Deployment Options
 
-## Detailed Installation
+### Option 1: AWS Elastic Beanstalk (Recommended)
 
-For step-by-step installation instructions, see [INSTALLATION.md](./INSTALLATION.md).
+1. **Prerequisites**:
+   - AWS CLI installed and configured
+   - EB CLI installed (`pip install awsebcli`)
 
-## Available Tools
+2. **Deploy**:
+   ```bash
+   git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP-Remote.git
+   cd Trilogy-AI-CoE-MCP-Remote
+   npm install
+   npm run build
+   
+   eb init --platform node.js --region us-east-1
+   eb create trilogy-ai-coe-mcp
+   eb deploy
+   ```
 
-The server provides these tools to AI assistants:
+3. **Get your server URL**:
+   ```bash
+   eb status
+   ```
 
-### `list_articles`
+### Option 2: Docker Deployment
+
+1. **Build and run locally**:
+   ```bash
+   docker build -t trilogy-ai-coe-mcp .
+   docker run -p 3000:3000 -e SUBSTACK_FEED_URL=https://trilogyai.substack.com trilogy-ai-coe-mcp
+   ```
+
+2. **Deploy to cloud platforms**:
+   - **AWS ECS**: Push to ECR and deploy with ECS
+   - **Google Cloud Run**: `gcloud run deploy`
+   - **Azure Container Instances**: `az container create`
+   - **Railway**: Connect your GitHub repo
+   - **Render**: Connect your GitHub repo
+
+### Option 3: Traditional VPS/Server
+
+1. **Setup on your server**:
+   ```bash
+   git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP-Remote.git
+   cd Trilogy-AI-CoE-MCP-Remote
+   npm install
+   npm run build
+   
+   # Set environment variables
+   export MODE=http
+   export PORT=3000
+   export SUBSTACK_FEED_URL=https://trilogyai.substack.com
+   
+   # Start with PM2 (recommended)
+   npm install -g pm2
+   pm2 start dist/index.js --name trilogy-ai-coe-mcp
+   ```
+
+## API Endpoints
+
+Once deployed, your server will provide these endpoints:
+
+### `GET /`
+Server information and available endpoints.
+
+### `GET /health`
+Health check endpoint.
+
+### `GET /tools`
+List all available MCP tools with their schemas.
+
+### `POST /tools/list_articles`
 Get a list of available articles with optional filtering.
 
-**Parameters:**
-- `limit` (optional): Maximum number of articles to return (default: 10)
-- `author` (optional): Filter articles by author name
-- `topic` (optional): Filter articles by topic
+**Request Body:**
+```json
+{
+  "limit": 10,
+  "author": "John Smith",
+  "topic": "AI Strategy"
+}
+```
 
-**Example usage:**
-- "List the 5 most recent articles"
-- "Show me articles by John Smith"
-- "Find articles about AI governance"
-
-### `list_authors`
+### `POST /tools/list_authors`
 Get all authors who have written articles.
 
-**Returns:** List of authors with article counts and latest publication dates.
-
-### `list_topics`
+### `POST /tools/list_topics`
 Get available topics/categories covered in articles.
 
-**Returns:** List of topics with article counts and associated articles.
-
-### `read_article`
+### `POST /tools/read_article`
 Read the full content of a specific article.
 
-**Parameters:**
-- `articleId` (optional): The ID of the article to read
-- `url` (optional): The URL of the article to read
-- `title` (optional): Search for article by title
-
-**Example usage:**
-- "Read the article about AI strategy"
-- "Show me the full content of the latest article"
+**Request Body:**
+```json
+{
+  "articleId": "article-1",
+  "url": "https://trilogyai.substack.com/p/article-title",
+  "title": "Article Title"
+}
+```
 
 ## Configuration
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Set these environment variables for your deployment:
 
 ```env
 # Required: Substack feed URL
 SUBSTACK_FEED_URL=https://trilogyai.substack.com
 
+# Server mode (always 'http' for remote server)
+MODE=http
+
+# Server port
+PORT=3000
+
 # Optional: Enable debug logging
 DEBUG=false
 
-# Optional: Server port for testing
-PORT=3000
+# Node environment
+NODE_ENV=production
 ```
 
-### Custom Substack Feed
+### AWS Elastic Beanstalk Configuration
 
-To use a different Substack publication:
+The `.ebextensions/nodejs.config` file contains the EB configuration:
 
-1. Update `SUBSTACK_FEED_URL` in your `.env` file
-2. Rebuild the server: `npm run build`
-3. Restart your AI assistant
+```yaml
+option_settings:
+  aws:elasticbeanstalk:container:nodejs:
+    NodeCommand: "npm start"
+    NodeVersion: 18.19.0
+  aws:elasticbeanstalk:application:environment:
+    NODE_ENV: production
+    MODE: http
+    PORT: 8080
+    SUBSTACK_FEED_URL: https://trilogyai.substack.com
+    DEBUG: false
+```
+
+## Connecting AI Assistants
+
+### Claude Desktop
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "trilogy-ai-coe": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-fetch", "https://your-server-url.com"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to your MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "trilogy-ai-coe": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-fetch", "https://your-server-url.com"]
+    }
+  }
+}
+```
 
 ## Development
 
-### Running in Development Mode
+### Local Development
 
 ```bash
-# Watch mode with auto-rebuild
+# Clone the repository
+git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP-Remote.git
+cd Trilogy-AI-CoE-MCP-Remote
+
+# Install dependencies
+npm install
+
+# Run in development mode (HTTP server)
 npm run dev
 
-# Run tests
+# Or run in traditional MCP mode (stdio)
+MODE=stdio npm run dev
+```
+
+### Testing
+
+```bash
+# Build and test
+npm run build
 npm test
 
-# Build for production
-npm run build
+# Test HTTP endpoints
+curl http://localhost:3000/health
+curl http://localhost:3000/tools
+curl -X POST http://localhost:3000/tools/list_articles -H "Content-Type: application/json" -d '{"limit": 5}'
 ```
 
 ### Project Structure
 
 ```
-Trilogy-AI-CoE-MCP/
+Trilogy-AI-CoE-MCP-Remote/
 ├── src/
-│   ├── index.ts          # Main server implementation
+│   ├── index.ts          # Main server implementation (HTTP + MCP)
 │   └── polyfill.js       # Node.js web API compatibility polyfill
+├── .ebextensions/        # AWS Elastic Beanstalk configuration
+│   └── nodejs.config     # EB Node.js settings
 ├── dist/                 # Compiled JavaScript (generated)
+├── Dockerfile            # Docker container configuration
+├── .dockerignore         # Docker ignore file
 ├── package.json          # Dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
 ├── env.example           # Environment variables template
 ├── test-server.js        # Test script
-├── README.md             # This file
-├── INSTALLATION.md       # Detailed installation guide
-└── DEMO_SCRIPT.md        # Demo recording script
+└── README.md             # This file
 ```
 
-### Technical Notes
+## Deployment Platforms
 
-**Node.js Compatibility**: This server includes a polyfill (`src/polyfill.js`) that provides web APIs (`ReadableStream`, `Blob`, `DOMException`) required by the `cheerio` and `undici` dependencies. This ensures compatibility across different Node.js environments and versions.
+This server can be deployed to various platforms:
 
-## Supported AI Assistants
+- **AWS Elastic Beanstalk** ✅ (Recommended - includes configuration)
+- **AWS ECS/Fargate** ✅ (Use Docker)
+- **Google Cloud Run** ✅ (Use Docker)
+- **Azure Container Instances** ✅ (Use Docker)
+- **Railway** ✅ (Connect GitHub repo)
+- **Render** ✅ (Connect GitHub repo)
+- **Heroku** ✅ (Connect GitHub repo)
+- **DigitalOcean App Platform** ✅ (Use Docker)
+- **Traditional VPS** ✅ (PM2 recommended)
 
-This MCP server works with:
+## Cost Considerations
 
-- **Claude Desktop** - Full support with easy configuration
-- **Cursor** - Full support via MCP settings
-- **Windsurf** - Full support via MCP configuration
-- **Any MCP-compatible application** - Universal protocol support
+- **AWS Elastic Beanstalk**: ~$10-20/month for t3.micro instance
+- **Google Cloud Run**: Pay per request, very cost-effective for low traffic
+- **Railway/Render**: ~$5-10/month for hobby plans
+- **VPS**: ~$5-20/month depending on provider
+
+## Security
+
+- CORS is enabled for cross-origin requests
+- No authentication required (public read-only API)
+- Rate limiting should be implemented for production use
+- Consider adding API keys for private deployments
+
+## Monitoring
+
+- Health check endpoint: `GET /health`
+- Debug logging available with `DEBUG=true`
+- Consider adding application monitoring (New Relic, DataDog, etc.)
 
 ## Troubleshooting
 
@@ -185,23 +303,19 @@ This MCP server works with:
 
 1. **Server won't start**: Check Node.js version (18+ required)
 2. **No articles found**: Verify Substack feed URL and internet connection
-3. **Permission errors**: Ensure proper file permissions for the server executable
-4. **Path issues**: Use absolute paths in AI assistant configuration
+3. **CORS errors**: Ensure CORS is properly configured
+4. **Port issues**: Check PORT environment variable
 
 ### Debug Mode
 
-Enable detailed logging by setting `DEBUG=true` in your environment or configuration.
+Enable detailed logging by setting `DEBUG=true` in your environment.
 
 ### Getting Help
 
-1. Check the [INSTALLATION.md](./INSTALLATION.md) guide
-2. Review the [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for examples
-3. Run `npm test` to verify your setup
+1. Check server logs for errors
+2. Test endpoints directly with curl/Postman
+3. Verify environment variables are set correctly
 4. Open an issue on GitHub for additional support
-
-## Demo
-
-See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a complete recording script demonstrating all features.
 
 ## Contributing
 
@@ -217,4 +331,4 @@ MIT License - see LICENSE file for details.
 
 ## About
 
-This project demonstrates how to create a Model Context Protocol server that connects AI assistants to external data sources. It's part of the AI Center of Excellence at Trilogy's initiative to showcase practical AI integration patterns. 
+This project demonstrates how to create a **remote** Model Context Protocol server that can be deployed to cloud platforms, making AI assistant integrations more accessible by eliminating the need for local server hosting. It's part of the AI Center of Excellence at Trilogy's initiative to showcase practical AI integration patterns. 

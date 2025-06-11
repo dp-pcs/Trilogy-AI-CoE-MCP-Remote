@@ -12,10 +12,14 @@ import {
 import { z } from 'zod';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import express from 'express';
+import cors from 'cors';
 
 // Environment configuration
 const SUBSTACK_FEED_URL = process.env.SUBSTACK_FEED_URL || 'https://trilogyai.substack.com';
 const DEBUG = process.env.DEBUG === 'true';
+const PORT = process.env.PORT || 3000;
+const MODE = process.env.MODE || 'http'; // 'stdio' for local MCP, 'http' for remote server
 
 // Types for our data structures
 interface Article {
@@ -500,13 +504,266 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// Create Express app for HTTP mode
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// MCP tools endpoint
+app.get('/tools', async (req, res) => {
+  try {
+    const tools = [
+      {
+        name: 'list_articles',
+        description: 'List articles from the AI CoE Trilogy Substack feed',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Maximum number of articles to return (default: 10)',
+              default: 10,
+            },
+            author: {
+              type: 'string',
+              description: 'Filter articles by author name',
+            },
+            topic: {
+              type: 'string',
+              description: 'Filter articles by topic',
+            },
+          },
+        },
+      },
+      {
+        name: 'list_authors',
+        description: 'List all authors who have written articles',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'list_topics',
+        description: 'List all topics/categories covered in articles',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'read_article',
+        description: 'Read the full content of a specific article',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            articleId: {
+              type: 'string',
+              description: 'The ID of the article to read',
+            },
+            url: {
+              type: 'string',
+              description: 'The URL of the article to read',
+            },
+            title: {
+              type: 'string',
+              description: 'The title of the article to read (will search for matching title)',
+            },
+          },
+        },
+      },
+    ];
+    
+    res.json({ tools });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get tools' });
+  }
+});
+
+// Execute tool endpoint
+app.post('/tools/:toolName', async (req, res) => {
+  const { toolName } = req.params;
+  const args = req.body;
+
+  try {
+    let result;
+    
+    switch (toolName) {
+      case 'list_articles': {
+        const { limit = 10, author, topic } = args;
+        const articles = await fetchSubstackFeed();
+        
+        let filteredArticles = articles;
+        
+        if (author) {
+          filteredArticles = filteredArticles.filter(article => 
+            article.author.toLowerCase().includes(author.toLowerCase())
+          );
+        }
+        
+        if (topic) {
+          filteredArticles = filteredArticles.filter(article =>
+            article.topics.some(t => t.toLowerCase().includes(topic.toLowerCase()))
+          );
+        }
+        
+        const limitedArticles = filteredArticles.slice(0, limit);
+        
+        result = {
+          articles: limitedArticles.map(article => ({
+            id: article.id,
+            title: article.title,
+            author: article.author,
+            publishedDate: article.publishedDate,
+            url: article.url,
+            excerpt: article.excerpt,
+            topics: article.topics,
+          })),
+          total: filteredArticles.length,
+          showing: limitedArticles.length,
+        };
+        break;
+      }
+
+      case 'list_authors': {
+        const articles = await fetchSubstackFeed();
+        
+        const authorMap = new Map<string, Author>();
+        
+        articles.forEach(article => {
+          if (authorMap.has(article.author)) {
+            const author = authorMap.get(article.author)!;
+            author.articleCount++;
+            if (new Date(article.publishedDate) > new Date(author.latestArticle)) {
+              author.latestArticle = article.publishedDate;
+            }
+          } else {
+            authorMap.set(article.author, {
+              name: article.author,
+              articleCount: 1,
+              latestArticle: article.publishedDate,
+            });
+          }
+        });
+        
+        const authors = Array.from(authorMap.values()).sort((a, b) => b.articleCount - a.articleCount);
+        
+        result = { authors };
+        break;
+      }
+
+      case 'list_topics': {
+        const articles = await fetchSubstackFeed();
+        
+        const topicMap = new Map<string, Topic>();
+        
+        articles.forEach(article => {
+          article.topics.forEach(topic => {
+            if (topicMap.has(topic)) {
+              const topicData = topicMap.get(topic)!;
+              topicData.articleCount++;
+              topicData.articles.push(article.title);
+            } else {
+              topicMap.set(topic, {
+                name: topic,
+                articleCount: 1,
+                articles: [article.title],
+              });
+            }
+          });
+        });
+        
+        const topics = Array.from(topicMap.values()).sort((a, b) => b.articleCount - a.articleCount);
+        
+        result = { topics };
+        break;
+      }
+
+      case 'read_article': {
+        const { articleId, url, title } = args;
+        const articles = await fetchSubstackFeed();
+        
+        let targetArticle: Article | undefined;
+        
+        if (articleId) {
+          targetArticle = articles.find(article => article.id === articleId);
+        } else if (url) {
+          targetArticle = articles.find(article => article.url === url);
+        } else if (title) {
+          targetArticle = articles.find(article => 
+            article.title.toLowerCase().includes(title.toLowerCase())
+          );
+        }
+        
+        if (!targetArticle) {
+          return res.status(404).json({ error: 'Article not found. Please provide a valid articleId, url, or title.' });
+        }
+        
+        const content = await fetchArticleContent(targetArticle.url);
+        
+        result = {
+          article: {
+            id: targetArticle.id,
+            title: targetArticle.title,
+            author: targetArticle.author,
+            publishedDate: targetArticle.publishedDate,
+            url: targetArticle.url,
+            topics: targetArticle.topics,
+            content: content,
+          },
+        };
+        break;
+      }
+
+      default:
+        return res.status(404).json({ error: `Unknown tool: ${toolName}` });
+    }
+    
+    res.json(result);
+  } catch (error) {
+    debugLog('Tool execution error', error);
+    res.status(500).json({ 
+      error: `Error executing tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}` 
+    });
+  }
+});
+
+// Root endpoint with server info
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Trilogy AI CoE MCP Remote Server',
+    version: '1.0.0',
+    description: 'A remote Model Context Protocol server for Trilogy AI Center of Excellence Substack content',
+    endpoints: {
+      health: '/health',
+      tools: '/tools',
+      execute: '/tools/:toolName'
+    },
+    substack_url: SUBSTACK_FEED_URL,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Start the server
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  
-  debugLog('Trilogy AI CoE MCP Server started successfully');
-  debugLog(`Substack feed URL: ${SUBSTACK_FEED_URL}`);
+  if (MODE === 'stdio') {
+    // Traditional MCP server mode for local usage
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    debugLog('Trilogy AI CoE MCP Server started successfully (stdio mode)');
+  } else {
+    // HTTP server mode for remote usage
+    app.listen(PORT, () => {
+      console.log(`Trilogy AI CoE MCP Remote Server running on port ${PORT}`);
+      debugLog('Server started successfully (HTTP mode)');
+      debugLog(`Substack feed URL: ${SUBSTACK_FEED_URL}`);
+    });
+  }
 }
 
 main().catch((error) => {
