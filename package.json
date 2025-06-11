@@ -11,26 +11,34 @@
     "test": "npm run build && node test-server.js",
     "test-server": "npm run test"
   },
-  "keywords": ["mcp", "substack", "ai", "trilogy", "model-context-protocol", "remote-server"],
+  "keywords": [
+    "mcp",
+    "substack",
+    "ai",
+    "trilogy",
+    "model-context-protocol",
+    "remote-server"
+  ],
   "author": "AI CoE Trilogy",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
-    "zod": "^3.22.4",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",
-    "express": "^4.18.0",
     "cors": "^2.8.5",
-    "typescript": "^5.3.0"
+    "express": "^4.18.0",
+    "node-fetch": "^2.7.0",
+    "typescript": "^5.3.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@types/express": "^4.17.0",
     "@types/cors": "^2.8.0",
-    "tsx": "^4.6.0",
-    "nodemon": "^3.0.0"
+    "@types/express": "^4.17.0",
+    "@types/node": "^20.10.0",
+    "nodemon": "^3.0.0",
+    "tsx": "^4.6.0"
   },
   "engines": {
     "node": ">=18.0.0"
   }
-} 
+}

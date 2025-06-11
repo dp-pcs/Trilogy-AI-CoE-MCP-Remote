@@ -613,11 +613,289 @@ app.get('/', (req, res) => {
         endpoints: {
             health: '/health',
             tools: '/tools',
-            execute: '/tools/:toolName'
+            execute: '/tools/:toolName',
+            mcp: '/mcp'
         },
         substack_url: SUBSTACK_FEED_URL,
         timestamp: new Date().toISOString()
     });
+});
+// MCP-over-HTTP endpoint (JSON-RPC 2.0)
+app.post('/mcp', async (req, res) => {
+    try {
+        const { jsonrpc, method, params, id } = req.body;
+        // Validate JSON-RPC 2.0 format
+        if (jsonrpc !== '2.0') {
+            return res.json({
+                jsonrpc: '2.0',
+                error: {
+                    code: -32600,
+                    message: 'Invalid Request'
+                },
+                id: id || null
+            });
+        }
+        let result;
+        switch (method) {
+            case 'initialize': {
+                result = {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {
+                        tools: {}
+                    },
+                    serverInfo: {
+                        name: 'trilogy-ai-coe-mcp',
+                        version: '1.0.0'
+                    }
+                };
+                break;
+            }
+            case 'tools/list': {
+                result = {
+                    tools: [
+                        {
+                            name: 'list_articles',
+                            description: 'List articles from the AI CoE Trilogy Substack feed',
+                            inputSchema: {
+                                type: 'object',
+                                properties: {
+                                    limit: {
+                                        type: 'number',
+                                        description: 'Maximum number of articles to return (default: 10)',
+                                        default: 10,
+                                    },
+                                    author: {
+                                        type: 'string',
+                                        description: 'Filter articles by author name',
+                                    },
+                                    topic: {
+                                        type: 'string',
+                                        description: 'Filter articles by topic',
+                                    },
+                                },
+                            },
+                        },
+                        {
+                            name: 'list_authors',
+                            description: 'List all authors who have written articles',
+                            inputSchema: {
+                                type: 'object',
+                                properties: {},
+                            },
+                        },
+                        {
+                            name: 'list_topics',
+                            description: 'List all topics/categories covered in articles',
+                            inputSchema: {
+                                type: 'object',
+                                properties: {},
+                            },
+                        },
+                        {
+                            name: 'read_article',
+                            description: 'Read the full content of a specific article',
+                            inputSchema: {
+                                type: 'object',
+                                properties: {
+                                    articleId: {
+                                        type: 'string',
+                                        description: 'The ID of the article to read',
+                                    },
+                                    url: {
+                                        type: 'string',
+                                        description: 'The URL of the article to read',
+                                    },
+                                    title: {
+                                        type: 'string',
+                                        description: 'The title of the article to read (will search for matching title)',
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                };
+                break;
+            }
+            case 'tools/call': {
+                const { name: toolName, arguments: args } = params;
+                switch (toolName) {
+                    case 'list_articles': {
+                        const { limit = 10, author, topic } = args || {};
+                        const articles = await fetchSubstackFeed();
+                        let filteredArticles = articles;
+                        if (author) {
+                            filteredArticles = filteredArticles.filter(article => article.author.toLowerCase().includes(author.toLowerCase()));
+                        }
+                        if (topic) {
+                            filteredArticles = filteredArticles.filter(article => article.topics.some(t => t.toLowerCase().includes(topic.toLowerCase())));
+                        }
+                        const limitedArticles = filteredArticles.slice(0, limit);
+                        result = {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: JSON.stringify({
+                                        articles: limitedArticles.map(article => ({
+                                            id: article.id,
+                                            title: article.title,
+                                            author: article.author,
+                                            publishedDate: article.publishedDate,
+                                            url: article.url,
+                                            excerpt: article.excerpt,
+                                            topics: article.topics,
+                                        })),
+                                        total: filteredArticles.length,
+                                        showing: limitedArticles.length,
+                                    }, null, 2),
+                                },
+                            ],
+                        };
+                        break;
+                    }
+                    case 'list_authors': {
+                        const articles = await fetchSubstackFeed();
+                        const authorMap = new Map();
+                        articles.forEach(article => {
+                            if (authorMap.has(article.author)) {
+                                const author = authorMap.get(article.author);
+                                author.articleCount++;
+                                if (new Date(article.publishedDate) > new Date(author.latestArticle)) {
+                                    author.latestArticle = article.publishedDate;
+                                }
+                            }
+                            else {
+                                authorMap.set(article.author, {
+                                    name: article.author,
+                                    articleCount: 1,
+                                    latestArticle: article.publishedDate,
+                                });
+                            }
+                        });
+                        const authors = Array.from(authorMap.values()).sort((a, b) => b.articleCount - a.articleCount);
+                        result = {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: JSON.stringify({ authors }, null, 2),
+                                },
+                            ],
+                        };
+                        break;
+                    }
+                    case 'list_topics': {
+                        const articles = await fetchSubstackFeed();
+                        const topicMap = new Map();
+                        articles.forEach(article => {
+                            article.topics.forEach(topic => {
+                                if (topicMap.has(topic)) {
+                                    const topicData = topicMap.get(topic);
+                                    topicData.articleCount++;
+                                    topicData.articles.push(article.title);
+                                }
+                                else {
+                                    topicMap.set(topic, {
+                                        name: topic,
+                                        articleCount: 1,
+                                        articles: [article.title],
+                                    });
+                                }
+                            });
+                        });
+                        const topics = Array.from(topicMap.values()).sort((a, b) => b.articleCount - a.articleCount);
+                        result = {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: JSON.stringify({ topics }, null, 2),
+                                },
+                            ],
+                        };
+                        break;
+                    }
+                    case 'read_article': {
+                        const { articleId, url, title } = args || {};
+                        const articles = await fetchSubstackFeed();
+                        let targetArticle;
+                        if (articleId) {
+                            targetArticle = articles.find(article => article.id === articleId);
+                        }
+                        else if (url) {
+                            targetArticle = articles.find(article => article.url === url);
+                        }
+                        else if (title) {
+                            targetArticle = articles.find(article => article.title.toLowerCase().includes(title.toLowerCase()));
+                        }
+                        if (!targetArticle) {
+                            return res.json({
+                                jsonrpc: '2.0',
+                                error: {
+                                    code: -32602,
+                                    message: 'Article not found. Please provide a valid articleId, url, or title.'
+                                },
+                                id
+                            });
+                        }
+                        const content = await fetchArticleContent(targetArticle.url);
+                        result = {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: JSON.stringify({
+                                        article: {
+                                            id: targetArticle.id,
+                                            title: targetArticle.title,
+                                            author: targetArticle.author,
+                                            publishedDate: targetArticle.publishedDate,
+                                            url: targetArticle.url,
+                                            topics: targetArticle.topics,
+                                            content: content,
+                                        },
+                                    }, null, 2),
+                                },
+                            ],
+                        };
+                        break;
+                    }
+                    default:
+                        return res.json({
+                            jsonrpc: '2.0',
+                            error: {
+                                code: -32601,
+                                message: `Unknown tool: ${toolName}`
+                            },
+                            id
+                        });
+                }
+                break;
+            }
+            default:
+                return res.json({
+                    jsonrpc: '2.0',
+                    error: {
+                        code: -32601,
+                        message: `Method not found: ${method}`
+                    },
+                    id
+                });
+        }
+        // Success response
+        res.json({
+            jsonrpc: '2.0',
+            result,
+            id
+        });
+    }
+    catch (error) {
+        debugLog('MCP protocol error', error);
+        res.json({
+            jsonrpc: '2.0',
+            error: {
+                code: -32603,
+                message: `Internal error: ${error instanceof Error ? error.message : 'Unknown error'}`
+            },
+            id: req.body?.id || null
+        });
+    }
 });
 // Start the server
 async function main() {
