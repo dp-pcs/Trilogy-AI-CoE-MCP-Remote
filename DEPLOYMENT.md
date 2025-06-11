@@ -2,6 +2,8 @@
 
 This guide covers deploying the Trilogy AI CoE MCP Remote Server to various cloud platforms.
 
+**✨ The deployed server is now compatible with ChatGPT's Deep Research MCP connector!**
+
 ## Prerequisites
 
 - Node.js 18+ installed locally
@@ -13,6 +15,8 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
 ### AWS Elastic Beanstalk (Recommended)
 
 **Cost**: ~$10-20/month for t3.micro instance
+
+Our production server is deployed on AWS EB with HTTPS and custom domain.
 
 1. **Install AWS CLI and EB CLI**:
    ```bash
@@ -40,6 +44,11 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
    eb deploy
    ```
 
+4. **Setup HTTPS (for ChatGPT compatibility)**:
+   - Request SSL certificate in AWS Certificate Manager
+   - Configure load balancer listener for port 443
+   - Update security group to allow HTTPS traffic
+
 ### Railway
 
 **Cost**: ~$5/month for hobby plan
@@ -58,6 +67,7 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
    ```
 
 3. **Deploy**: Railway will automatically deploy on git push
+4. **HTTPS**: Railway provides HTTPS by default
 
 ### Render
 
@@ -78,6 +88,8 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
      SUBSTACK_FEED_URL=https://trilogyai.substack.com
      NODE_ENV=production
      ```
+
+3. **HTTPS**: Render provides HTTPS by default
 
 ### Google Cloud Run
 
@@ -106,6 +118,8 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
      --set-env-vars MODE=http,SUBSTACK_FEED_URL=https://trilogyai.substack.com
    ```
 
+3. **HTTPS**: Cloud Run provides HTTPS by default
+
 ### Heroku
 
 **Cost**: Free tier discontinued, ~$7/month for basic plans
@@ -133,6 +147,8 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
    git push heroku main
    ```
 
+3. **HTTPS**: Heroku provides HTTPS by default
+
 ### DigitalOcean App Platform
 
 **Cost**: ~$5/month for basic plan
@@ -152,6 +168,8 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
      NODE_ENV=production
      ```
 
+3. **HTTPS**: DigitalOcean provides HTTPS by default
+
 ### Traditional VPS (Ubuntu/Debian)
 
 **Cost**: ~$5-20/month depending on provider
@@ -168,8 +186,8 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
    # Install PM2
    sudo npm install -g pm2
    
-   # Install Nginx (optional, for reverse proxy)
-   sudo apt install nginx
+   # Install Nginx (required for HTTPS)
+   sudo apt install nginx certbot python3-certbot-nginx
    ```
 
 2. **Deploy application**:
@@ -197,7 +215,7 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
    pm2 save
    ```
 
-3. **Setup Nginx reverse proxy** (optional):
+3. **Setup Nginx reverse proxy with HTTPS**:
    ```nginx
    # /etc/nginx/sites-available/trilogy-ai-coe-mcp
    server {
@@ -223,6 +241,9 @@ This guide covers deploying the Trilogy AI CoE MCP Remote Server to various clou
    sudo ln -s /etc/nginx/sites-available/trilogy-ai-coe-mcp /etc/nginx/sites-enabled/
    sudo nginx -t
    sudo systemctl reload nginx
+   
+   # Setup HTTPS with Let's Encrypt
+   sudo certbot --nginx -d your-domain.com
    ```
 
 ## Docker Deployment
@@ -270,21 +291,57 @@ All deployments need these environment variables:
 
 1. **Test your deployment**:
    ```bash
+   # Test basic endpoints
    curl https://your-server-url.com/health
    curl https://your-server-url.com/tools
+   
+   # Test MCP protocol (ChatGPT compatible)
+   curl -X POST https://your-server-url.com/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
+   
+   # Test search functionality
+   curl -X POST https://your-server-url.com/tools/search \
+     -H "Content-Type: application/json" \
+     -d '{"query": "AI strategy"}'
    ```
 
 2. **Configure AI assistants**:
+
+   **For ChatGPT**:
+   - Go to ChatGPT Settings → Connectors
+   - Add MCP Server: `https://your-server-url.com/mcp`
+
+   **For Claude Desktop** (create local client):
    ```json
    {
      "mcpServers": {
-       "trilogy-ai-coe": {
-         "command": "npx",
-         "args": ["@modelcontextprotocol/server-fetch", "https://your-server-url.com"]
+       "trilogy-ai-coe-remote": {
+         "command": "node",
+         "args": ["/path/to/mcp-remote-client.js"]
        }
      }
    }
    ```
+
+## ChatGPT Deep Research Integration
+
+Your deployed server supports ChatGPT's Deep Research feature:
+
+1. **Requirements**:
+   - HTTPS endpoint (required by ChatGPT)
+   - `/mcp` endpoint for JSON-RPC 2.0 protocol
+   - `search` and `fetch` tools with proper schemas
+
+2. **Setup in ChatGPT**:
+   - Name: `Trilogy AI CoE MCP Server`
+   - URL: `https://your-server-url.com/mcp`
+   - Authentication: None
+
+3. **Usage**:
+   - Use Deep Research to analyze AI trends
+   - Search Trilogy's AI CoE content
+   - Get comprehensive insights with proper citations
 
 ## Monitoring and Maintenance
 
@@ -292,6 +349,7 @@ All deployments need these environment variables:
 - **Logs**: Check platform-specific logging (CloudWatch, Railway logs, etc.)
 - **Updates**: Redeploy when you update the code
 - **Scaling**: Most platforms offer auto-scaling options
+- **HTTPS**: Essential for ChatGPT compatibility
 
 ## Troubleshooting
 
@@ -301,18 +359,35 @@ All deployments need these environment variables:
 2. **Build failures**: Check Node.js version (18+ required)
 3. **CORS issues**: Verify CORS is enabled in the application
 4. **Memory issues**: Consider upgrading to higher-tier plans for better performance
+5. **HTTPS issues**: ChatGPT requires HTTPS - ensure SSL is properly configured
+6. **MCP protocol errors**: Verify `/mcp` endpoint returns proper JSON-RPC 2.0 responses
 
 ### Platform-Specific Notes
 
-- **Railway**: Automatically detects Node.js and runs `npm start`
-- **Render**: Uses `PORT=10000` by default
-- **Heroku**: Requires `Procfile` (already included)
+- **Railway**: Automatically detects Node.js and runs `npm start`, provides HTTPS
+- **Render**: Uses `PORT=10000` by default, provides HTTPS
+- **Heroku**: Requires `Procfile` (already included), provides HTTPS
 - **Google Cloud Run**: Automatically handles HTTPS
-- **AWS EB**: Uses port 8080 internally, configured in `.ebextensions/`
+- **AWS EB**: Uses port 8080 internally, requires manual HTTPS setup
+
+### ChatGPT Integration Issues
+
+1. **Server not reachable**: Ensure HTTPS is working
+2. **Tools not appearing**: Verify `/mcp` endpoint responds correctly
+3. **Search not working**: Check `search` tool returns proper result format
+4. **No citations**: Ensure articles have valid URLs in responses
 
 ## Cost Optimization
 
 - **Google Cloud Run**: Best for low traffic (pay per request)
 - **Railway/Render**: Good for consistent low traffic
 - **AWS EB**: Good for production workloads with predictable traffic
-- **VPS**: Most cost-effective for high traffic or multiple applications 
+- **VPS**: Most cost-effective for high traffic or multiple applications
+
+## Security Considerations
+
+- **HTTPS**: Required for production and ChatGPT integration
+- **CORS**: Properly configured for cross-origin requests
+- **Rate limiting**: Consider implementing for high-traffic deployments
+- **Environment variables**: Never commit secrets to git
+- **Updates**: Keep dependencies updated for security patches 

@@ -2,6 +2,8 @@
 
 A **remote** Model Context Protocol (MCP) server that connects to Substack feeds to provide AI assistants with access to articles, authors, and topics from the AI Center of Excellence at Trilogy. This server runs as a web service deployed on AWS, eliminating the need for users to host the MCP server locally.
 
+**✨ Now compatible with ChatGPT's Deep Research feature!**
+
 ## 🌐 Live Server
 
 **Server URL:** `https://ai-coe-mcp.latentgenius.ai`
@@ -15,41 +17,112 @@ The Model Context Protocol (MCP) is an open standard that enables AI assistants 
 ## Features
 
 - 🌐 **Remote Access**: No local installation required - connect from anywhere
-- 📚 **List Articles**: Browse available articles from the Substack feed
-- 👥 **List Authors**: View all authors who have contributed content
-- 🏷️ **List Topics**: Explore articles by topic/category
-- 📖 **Read Articles**: Access full article content
-- 🔍 **Filter Content**: Search by author, topic, or keywords
+- 🔍 **Search Articles**: Search through Trilogy AI CoE articles by keywords, topics, or authors
+- 📖 **Fetch Content**: Retrieve full article content with proper citations
+- 🤖 **ChatGPT Compatible**: Fully supports ChatGPT's Deep Research MCP connector
 - 🔌 **HTTP API**: RESTful endpoints for easy integration
 - ⚡ **Fast & Reliable**: Built-in caching and error handling
-- 🚀 **Cloud Hosted**: Deployed on AWS Elastic Beanstalk
+- 🚀 **Cloud Hosted**: Deployed on AWS Elastic Beanstalk with HTTPS
 - 🔧 **Node.js Compatible**: Includes polyfills for web API compatibility
 
 ## Quick Start - Connect Your AI Assistant
 
+### For ChatGPT (Recommended)
+
+1. Go to ChatGPT Settings → Connectors
+2. Add a new MCP Server with:
+   - **Name**: `Trilogy AI CoE MCP Server`
+   - **Description**: `Trilogy AI Center of Excellence MCP Server`
+   - **MCP Server URL**: `https://ai-coe-mcp.latentgenius.ai/mcp`
+   - **Authentication**: `No authentication`
+3. Save and start using Deep Research with Trilogy AI CoE content!
+
 ### For Claude Desktop
 
-Add to your `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "trilogy-ai-coe": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-fetch", "http://ai-coe-mcp.latentgenius.ai"]
-    }
+Create a local MCP client by saving this as `mcp-remote-client.js`:
+
+```javascript
+#!/usr/bin/env node
+
+import fetch from 'node-fetch';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+
+const REMOTE_SERVER_URL = 'https://ai-coe-mcp.latentgenius.ai';
+
+const server = new Server(
+  {
+    name: 'trilogy-ai-coe-remote-client',
+    version: '1.0.0',
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
   }
+);
+
+// Proxy tools from remote server
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  try {
+    const response = await fetch(`${REMOTE_SERVER_URL}/tools`);
+    const data = await response.json();
+    return { tools: data.tools };
+  } catch (error) {
+    console.error('Failed to fetch tools:', error);
+    return { tools: [] };
+  }
+});
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  try {
+    const { name, arguments: args } = request.params;
+    const response = await fetch(`${REMOTE_SERVER_URL}/tools/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(args || {})
+    });
+    
+    const result = await response.json();
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Error: ${error.message}`
+        }
+      ],
+      isError: true
+    };
+  }
+});
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('Trilogy AI CoE Remote MCP Client started');
 }
+
+main().catch(console.error);
 ```
 
-### For Cursor
-
-Add to your MCP settings:
+Then add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "trilogy-ai-coe": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-fetch", "http://ai-coe-mcp.latentgenius.ai"]
+    "trilogy-ai-coe-remote": {
+      "command": "node",
+      "args": ["/path/to/mcp-remote-client.js"]
     }
   }
 }
@@ -57,7 +130,7 @@ Add to your MCP settings:
 
 ### For Other MCP-Compatible Applications
 
-Use the server URL: `http://ai-coe-mcp.latentgenius.ai`
+Use the MCP server URL: `https://ai-coe-mcp.latentgenius.ai/mcp`
 
 ## API Endpoints
 
@@ -68,7 +141,7 @@ Server information and available endpoints.
 
 **Example:**
 ```bash
-curl http://ai-coe-mcp.latentgenius.ai/
+curl https://ai-coe-mcp.latentgenius.ai/
 ```
 
 ### `GET /health`
@@ -76,7 +149,17 @@ Health check endpoint.
 
 **Example:**
 ```bash
-curl http://ai-coe-mcp.latentgenius.ai/health
+curl https://ai-coe-mcp.latentgenius.ai/health
+```
+
+### `POST /mcp`
+MCP-over-HTTP endpoint for JSON-RPC 2.0 protocol (ChatGPT compatible).
+
+**Example:**
+```bash
+curl -X POST https://ai-coe-mcp.latentgenius.ai/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
 ```
 
 ### `GET /tools`
@@ -84,111 +167,85 @@ List all available MCP tools with their schemas.
 
 **Example:**
 ```bash
-curl http://ai-coe-mcp.latentgenius.ai/tools
+curl https://ai-coe-mcp.latentgenius.ai/tools
 ```
 
-### `POST /tools/list_articles`
-Get a list of available articles with optional filtering.
+### `POST /tools/search`
+Search through articles using keywords, topics, or author names.
 
 **Request Body:**
 ```json
 {
-  "limit": 10,
-  "author": "John Smith",
-  "topic": "AI Strategy"
+  "query": "AI machine learning strategy"
 }
 ```
 
 **Example:**
 ```bash
-curl -X POST http://ai-coe-mcp.latentgenius.ai/tools/list_articles \
+curl -X POST https://ai-coe-mcp.latentgenius.ai/tools/search \
   -H "Content-Type: application/json" \
-  -d '{"limit": 5}'
+  -d '{"query": "agentic frameworks"}'
 ```
 
-### `POST /tools/list_authors`
-Get all authors who have written articles.
-
-**Example:**
-```bash
-curl -X POST http://ai-coe-mcp.latentgenius.ai/tools/list_authors \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-### `POST /tools/list_topics`
-Get available topics/categories covered in articles.
-
-**Example:**
-```bash
-curl -X POST http://ai-coe-mcp.latentgenius.ai/tools/list_topics \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-### `POST /tools/read_article`
-Read the full content of a specific article.
+### `POST /tools/fetch`
+Retrieve full article content by ID.
 
 **Request Body:**
 ```json
 {
-  "articleId": "article-1",
-  "url": "https://trilogyai.substack.com/p/article-title",
-  "title": "Article Title"
+  "id": "article-id-here"
 }
 ```
 
 **Example:**
 ```bash
-curl -X POST http://ai-coe-mcp.latentgenius.ai/tools/read_article \
+curl -X POST https://ai-coe-mcp.latentgenius.ai/tools/fetch \
   -H "Content-Type: application/json" \
-  -d '{"title": "Agentic Frameworks"}'
+  -d '{"id": "12345"}'
 ```
 
 ## Available MCP Tools
 
 When connected via MCP, your AI assistant can use these tools:
 
-### `list_articles`
-- **Description**: List articles from the AI CoE Trilogy Substack feed
+### `search`
+- **Description**: Searches for Trilogy AI Center of Excellence articles using keywords, topics, or author names
 - **Parameters**: 
-  - `limit` (optional): Maximum number of articles (default: 10)
-  - `author` (optional): Filter by author name
-  - `topic` (optional): Filter by topic
+  - `query` (required): Search query string
+- **Returns**: Array of matching articles with `id`, `title`, `text`, and `url`
+- **Use Cases**: "Find articles about AI strategy", "Search for content by David Proctor"
 
-### `list_authors`
-- **Description**: List all authors who have written articles
-- **Returns**: Authors with article counts and latest publication dates
-
-### `list_topics`
-- **Description**: List all topics/categories covered in articles
-- **Returns**: Topics with article counts and associated articles
-
-### `read_article`
-- **Description**: Read the full content of a specific article
+### `fetch`
+- **Description**: Retrieves detailed content for a specific article by ID
 - **Parameters**:
-  - `articleId` (optional): The ID of the article
-  - `url` (optional): The URL of the article
-  - `title` (optional): Search by title
+  - `id` (required): The ID of the article to fetch
+- **Returns**: Full article with `id`, `title`, `text`, `url`, and `metadata`
+- **Use Cases**: Get complete article content for detailed analysis
 
 ## Example Usage
 
 Once connected, ask your AI assistant:
-- "List the latest articles from the AI CoE"
-- "Show me all authors"
-- "What topics are covered?"
-- "Read the article about Agentic Frameworks"
-- "Find articles by David Proctor"
-- "Show me articles about AI strategy"
+- "Search for articles about agentic frameworks"
+- "Find content related to AI strategy"
+- "Look for articles by David Proctor"
+- "Search for machine learning best practices"
+- "Find articles about data science"
+
+For ChatGPT Deep Research:
+- "Research the latest AI trends from Trilogy's AI CoE"
+- "What are the key insights on agentic AI frameworks?"
+- "Analyze Trilogy's perspective on AI implementation strategies"
 
 ## Server Information
 
 - **Hosting**: AWS Elastic Beanstalk
 - **Region**: us-east-1
 - **Custom Domain**: ai-coe-mcp.latentgenius.ai
+- **HTTPS**: Fully secured with SSL certificate
 - **Uptime**: 24/7 availability
 - **Caching**: 5-minute cache for optimal performance
 - **Data Source**: https://trilogyai.substack.com
+- **ChatGPT Compatible**: Supports Deep Research MCP connector
 
 ## For Developers
 
@@ -219,22 +276,32 @@ npm run build
 npm test
 
 # Test HTTP endpoints
-curl http://localhost:3000/health
-curl http://localhost:3000/tools
-curl -X POST http://localhost:3000/tools/list_articles -H "Content-Type: application/json" -d '{"limit": 5}'
+curl https://ai-coe-mcp.latentgenius.ai/health
+curl https://ai-coe-mcp.latentgenius.ai/tools
+
+# Test search functionality
+curl -X POST https://ai-coe-mcp.latentgenius.ai/tools/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "AI strategy"}'
+
+# Test MCP protocol
+curl -X POST https://ai-coe-mcp.latentgenius.ai/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Connection errors**: Verify the server URL is correct
-2. **MCP not working**: Ensure you're using the correct configuration format
-3. **No articles returned**: Check your internet connection and try again
+1. **Connection errors**: Verify the server URL is correct and uses HTTPS
+2. **ChatGPT MCP not working**: Ensure you're using the `/mcp` endpoint
+3. **No search results**: Try broader search terms or check your query
+4. **Claude Desktop issues**: Verify the local client script has proper permissions
 
 ### Getting Help
 
-1. Test the server directly: `curl http://ai-coe-mcp.latentgenius.ai/health`
+1. Test the server directly: `curl https://ai-coe-mcp.latentgenius.ai/health`
 2. Verify your MCP configuration matches the examples above
 3. Check your AI assistant's MCP documentation
 4. Open an issue on GitHub for additional support
@@ -255,4 +322,4 @@ MIT License - see LICENSE file for details.
 
 This project demonstrates how to create a **remote** Model Context Protocol server that can be deployed to cloud platforms, making AI assistant integrations more accessible by eliminating the need for local server hosting. It's part of the AI Center of Excellence at Trilogy's initiative to showcase practical AI integration patterns.
 
-The server provides real-time access to AI CoE content, enabling AI assistants to stay current with the latest insights, strategies, and best practices in artificial intelligence. 
+The server provides real-time access to AI CoE content, enabling AI assistants to stay current with the latest insights, strategies, and best practices in artificial intelligence. With ChatGPT Deep Research compatibility, users can now perform comprehensive research using Trilogy's AI expertise directly within ChatGPT. 

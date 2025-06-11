@@ -186,30 +186,90 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         tools: [
             {
                 name: 'search',
-                description: 'Searches for Trilogy AI Center of Excellence articles using the provided query string and returns matching results. Use keywords related to AI, machine learning, data science, technology trends, or author names to find relevant articles.',
-                inputSchema: {
+                description: 'Searches for resources using the provided query string and returns matching results.',
+                input_schema: {
                     type: 'object',
                     properties: {
                         query: {
                             type: 'string',
-                            description: 'Search query to find relevant articles. Can include keywords, topics, author names, or phrases.'
+                            description: 'Search query.'
                         }
                     },
                     required: ['query']
+                },
+                output_schema: {
+                    type: 'object',
+                    properties: {
+                        results: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    id: {
+                                        type: 'string',
+                                        description: 'ID of the resource.'
+                                    },
+                                    title: {
+                                        type: 'string',
+                                        description: 'Title or headline of the resource.'
+                                    },
+                                    text: {
+                                        type: 'string',
+                                        description: 'Text snippet or summary from the resource.'
+                                    },
+                                    url: {
+                                        type: ['string', 'null'],
+                                        description: 'URL of the resource. Optional but needed for citations to work.'
+                                    }
+                                },
+                                required: ['id', 'title', 'text']
+                            }
+                        }
+                    },
+                    required: ['results']
                 }
             },
             {
                 name: 'fetch',
-                description: 'Retrieves detailed content for a specific Trilogy AI CoE article identified by the given ID.',
-                inputSchema: {
+                description: 'Retrieves detailed content for a specific resource identified by the given ID.',
+                input_schema: {
                     type: 'object',
                     properties: {
                         id: {
                             type: 'string',
-                            description: 'ID of the article to fetch full content for.'
+                            description: 'ID of the resource to fetch.'
                         }
                     },
                     required: ['id']
+                },
+                output_schema: {
+                    type: 'object',
+                    properties: {
+                        id: {
+                            type: 'string',
+                            description: 'ID of the resource.'
+                        },
+                        title: {
+                            type: 'string',
+                            description: 'Title or headline of the fetched resource.'
+                        },
+                        text: {
+                            type: 'string',
+                            description: 'Complete textual content of the resource.'
+                        },
+                        url: {
+                            type: ['string', 'null'],
+                            description: 'URL of the resource. Optional but needed for citations to work.'
+                        },
+                        metadata: {
+                            type: ['object', 'null'],
+                            additionalProperties: {
+                                type: 'string'
+                            },
+                            description: 'Optional metadata providing additional context.'
+                        }
+                    },
+                    required: ['id', 'title', 'text']
                 }
             }
         ],
@@ -353,30 +413,90 @@ app.get('/tools', async (req, res) => {
         const tools = [
             {
                 name: 'search',
-                description: 'Searches for Trilogy AI Center of Excellence articles using the provided query string and returns matching results. Use keywords related to AI, machine learning, data science, technology trends, or author names to find relevant articles.',
-                inputSchema: {
+                description: 'Searches for resources using the provided query string and returns matching results.',
+                input_schema: {
                     type: 'object',
                     properties: {
                         query: {
                             type: 'string',
-                            description: 'Search query to find relevant articles. Can include keywords, topics, author names, or phrases.'
+                            description: 'Search query.'
                         }
                     },
                     required: ['query']
+                },
+                output_schema: {
+                    type: 'object',
+                    properties: {
+                        results: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    id: {
+                                        type: 'string',
+                                        description: 'ID of the resource.'
+                                    },
+                                    title: {
+                                        type: 'string',
+                                        description: 'Title or headline of the resource.'
+                                    },
+                                    text: {
+                                        type: 'string',
+                                        description: 'Text snippet or summary from the resource.'
+                                    },
+                                    url: {
+                                        type: ['string', 'null'],
+                                        description: 'URL of the resource. Optional but needed for citations to work.'
+                                    }
+                                },
+                                required: ['id', 'title', 'text']
+                            }
+                        }
+                    },
+                    required: ['results']
                 }
             },
             {
                 name: 'fetch',
-                description: 'Retrieves detailed content for a specific Trilogy AI CoE article identified by the given ID.',
-                inputSchema: {
+                description: 'Retrieves detailed content for a specific resource identified by the given ID.',
+                input_schema: {
                     type: 'object',
                     properties: {
                         id: {
                             type: 'string',
-                            description: 'ID of the article to fetch full content for.'
+                            description: 'ID of the resource to fetch.'
                         }
                     },
                     required: ['id']
+                },
+                output_schema: {
+                    type: 'object',
+                    properties: {
+                        id: {
+                            type: 'string',
+                            description: 'ID of the resource.'
+                        },
+                        title: {
+                            type: 'string',
+                            description: 'Title or headline of the fetched resource.'
+                        },
+                        text: {
+                            type: 'string',
+                            description: 'Complete textual content of the resource.'
+                        },
+                        url: {
+                            type: ['string', 'null'],
+                            description: 'URL of the resource. Optional but needed for citations to work.'
+                        },
+                        metadata: {
+                            type: ['object', 'null'],
+                            additionalProperties: {
+                                type: 'string'
+                            },
+                            description: 'Optional metadata providing additional context.'
+                        }
+                    },
+                    required: ['id', 'title', 'text']
                 }
             }
         ];
@@ -521,30 +641,90 @@ app.post('/mcp', async (req, res) => {
                     tools: [
                         {
                             name: 'search',
-                            description: 'Searches for Trilogy AI Center of Excellence articles using the provided query string and returns matching results. Use keywords related to AI, machine learning, data science, technology trends, or author names to find relevant articles.',
-                            inputSchema: {
+                            description: 'Searches for resources using the provided query string and returns matching results.',
+                            input_schema: {
                                 type: 'object',
                                 properties: {
                                     query: {
                                         type: 'string',
-                                        description: 'Search query to find relevant articles. Can include keywords, topics, author names, or phrases.'
+                                        description: 'Search query.'
                                     }
                                 },
                                 required: ['query']
+                            },
+                            output_schema: {
+                                type: 'object',
+                                properties: {
+                                    results: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            properties: {
+                                                id: {
+                                                    type: 'string',
+                                                    description: 'ID of the resource.'
+                                                },
+                                                title: {
+                                                    type: 'string',
+                                                    description: 'Title or headline of the resource.'
+                                                },
+                                                text: {
+                                                    type: 'string',
+                                                    description: 'Text snippet or summary from the resource.'
+                                                },
+                                                url: {
+                                                    type: ['string', 'null'],
+                                                    description: 'URL of the resource. Optional but needed for citations to work.'
+                                                }
+                                            },
+                                            required: ['id', 'title', 'text']
+                                        }
+                                    }
+                                },
+                                required: ['results']
                             }
                         },
                         {
                             name: 'fetch',
-                            description: 'Retrieves detailed content for a specific Trilogy AI CoE article identified by the given ID.',
-                            inputSchema: {
+                            description: 'Retrieves detailed content for a specific resource identified by the given ID.',
+                            input_schema: {
                                 type: 'object',
                                 properties: {
                                     id: {
                                         type: 'string',
-                                        description: 'ID of the article to fetch full content for.'
+                                        description: 'ID of the resource to fetch.'
                                     }
                                 },
                                 required: ['id']
+                            },
+                            output_schema: {
+                                type: 'object',
+                                properties: {
+                                    id: {
+                                        type: 'string',
+                                        description: 'ID of the resource.'
+                                    },
+                                    title: {
+                                        type: 'string',
+                                        description: 'Title or headline of the fetched resource.'
+                                    },
+                                    text: {
+                                        type: 'string',
+                                        description: 'Complete textual content of the resource.'
+                                    },
+                                    url: {
+                                        type: ['string', 'null'],
+                                        description: 'URL of the resource. Optional but needed for citations to work.'
+                                    },
+                                    metadata: {
+                                        type: ['object', 'null'],
+                                        additionalProperties: {
+                                            type: 'string'
+                                        },
+                                        description: 'Optional metadata providing additional context.'
+                                    }
+                                },
+                                required: ['id', 'title', 'text']
                             }
                         }
                     ],
