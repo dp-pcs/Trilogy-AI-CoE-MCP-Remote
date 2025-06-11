@@ -2,8 +2,7 @@
 import './polyfill.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
+import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import express from 'express';
@@ -172,238 +171,173 @@ async function fetchArticleContent(url) {
         return 'Unable to fetch article content. Please visit the URL directly.';
     }
 }
-// Create the MCP server
+// MCP Server setup
 const server = new Server({
-    name: 'trilogy-ai-coe-mcp',
+    name: 'trilogy-ai-coe-mcp-remote',
     version: '1.0.0',
 }, {
     capabilities: {
         tools: {},
     },
 });
-// Define tool schemas
-const ListArticlesSchema = z.object({
-    limit: z.number().optional().default(10),
-    author: z.string().optional(),
-    topic: z.string().optional(),
-});
-const ListAuthorsSchema = z.object({});
-const ListTopicsSchema = z.object({});
-const ReadArticleSchema = z.object({
-    articleId: z.string().optional(),
-    url: z.string().optional(),
-    title: z.string().optional(),
-});
-// Register tools
+// Tool definitions for ChatGPT Deep Research compatibility
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
             {
-                name: 'list_articles',
-                description: 'List articles from the AI CoE Trilogy Substack feed',
+                name: 'search',
+                description: 'Searches for Trilogy AI Center of Excellence articles using the provided query string and returns matching results. Use keywords related to AI, machine learning, data science, technology trends, or author names to find relevant articles.',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        limit: {
-                            type: 'number',
-                            description: 'Maximum number of articles to return (default: 10)',
-                            default: 10,
-                        },
-                        author: {
+                        query: {
                             type: 'string',
-                            description: 'Filter articles by author name',
-                        },
-                        topic: {
-                            type: 'string',
-                            description: 'Filter articles by topic',
-                        },
+                            description: 'Search query to find relevant articles. Can include keywords, topics, author names, or phrases.'
+                        }
                     },
-                },
+                    required: ['query']
+                }
             },
             {
-                name: 'list_authors',
-                description: 'List all authors who have written articles',
-                inputSchema: {
-                    type: 'object',
-                    properties: {},
-                },
-            },
-            {
-                name: 'list_topics',
-                description: 'List all topics/categories covered in articles',
-                inputSchema: {
-                    type: 'object',
-                    properties: {},
-                },
-            },
-            {
-                name: 'read_article',
-                description: 'Read the full content of a specific article',
+                name: 'fetch',
+                description: 'Retrieves detailed content for a specific Trilogy AI CoE article identified by the given ID.',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        articleId: {
+                        id: {
                             type: 'string',
-                            description: 'The ID of the article to read',
-                        },
-                        url: {
-                            type: 'string',
-                            description: 'The URL of the article to read',
-                        },
-                        title: {
-                            type: 'string',
-                            description: 'The title of the article to read (will search for matching title)',
-                        },
+                            description: 'ID of the article to fetch full content for.'
+                        }
                     },
-                },
-            },
+                    required: ['id']
+                }
+            }
         ],
     };
 });
-// Handle tool calls
+// Search tool implementation
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    try {
-        switch (name) {
-            case 'list_articles': {
-                const { limit, author, topic } = ListArticlesSchema.parse(args);
-                const articles = await fetchSubstackFeed();
-                let filteredArticles = articles;
-                if (author) {
-                    filteredArticles = filteredArticles.filter(article => article.author.toLowerCase().includes(author.toLowerCase()));
-                }
-                if (topic) {
-                    filteredArticles = filteredArticles.filter(article => article.topics.some(t => t.toLowerCase().includes(topic.toLowerCase())));
-                }
-                const limitedArticles = filteredArticles.slice(0, limit);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify({
-                                articles: limitedArticles.map(article => ({
-                                    id: article.id,
-                                    title: article.title,
-                                    author: article.author,
-                                    publishedDate: article.publishedDate,
-                                    url: article.url,
-                                    excerpt: article.excerpt,
-                                    topics: article.topics,
-                                })),
-                                total: filteredArticles.length,
-                                showing: limitedArticles.length,
-                            }, null, 2),
-                        },
-                    ],
-                };
-            }
-            case 'list_authors': {
-                ListAuthorsSchema.parse(args);
-                const articles = await fetchSubstackFeed();
-                const authorMap = new Map();
-                articles.forEach(article => {
-                    if (authorMap.has(article.author)) {
-                        const author = authorMap.get(article.author);
-                        author.articleCount++;
-                        if (new Date(article.publishedDate) > new Date(author.latestArticle)) {
-                            author.latestArticle = article.publishedDate;
-                        }
+    if (name === 'search') {
+        try {
+            const { query } = args;
+            // Fetch articles from Substack
+            const articles = await fetchSubstackFeed();
+            // Search through articles
+            const searchTerms = query.toLowerCase().split(' ');
+            const results = articles
+                .filter(article => {
+                const searchText = `${article.title} ${article.excerpt || ''} ${article.author || ''}`.toLowerCase();
+                return searchTerms.some((term) => searchText.includes(term));
+            })
+                .slice(0, 10) // Limit to 10 results
+                .map(article => ({
+                id: article.id,
+                title: article.title,
+                text: article.excerpt || article.title,
+                url: article.url
+            }));
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify({ results })
                     }
-                    else {
-                        authorMap.set(article.author, {
-                            name: article.author,
-                            articleCount: 1,
-                            latestArticle: article.publishedDate,
-                        });
+                ]
+            };
+        }
+        catch (error) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify({
+                            error: 'Failed to search articles',
+                            message: error instanceof Error ? error.message : 'Unknown error'
+                        })
                     }
-                });
-                const authors = Array.from(authorMap.values()).sort((a, b) => b.articleCount - a.articleCount);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify({ authors }, null, 2),
-                        },
-                    ],
-                };
-            }
-            case 'list_topics': {
-                ListTopicsSchema.parse(args);
-                const articles = await fetchSubstackFeed();
-                const topicMap = new Map();
-                articles.forEach(article => {
-                    article.topics.forEach(topic => {
-                        if (topicMap.has(topic)) {
-                            const topicData = topicMap.get(topic);
-                            topicData.articleCount++;
-                            topicData.articles.push(article.title);
-                        }
-                        else {
-                            topicMap.set(topic, {
-                                name: topic,
-                                articleCount: 1,
-                                articles: [article.title],
-                            });
-                        }
-                    });
-                });
-                const topics = Array.from(topicMap.values()).sort((a, b) => b.articleCount - a.articleCount);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify({ topics }, null, 2),
-                        },
-                    ],
-                };
-            }
-            case 'read_article': {
-                const { articleId, url, title } = ReadArticleSchema.parse(args);
-                const articles = await fetchSubstackFeed();
-                let targetArticle;
-                if (articleId) {
-                    targetArticle = articles.find(article => article.id === articleId);
-                }
-                else if (url) {
-                    targetArticle = articles.find(article => article.url === url);
-                }
-                else if (title) {
-                    targetArticle = articles.find(article => article.title.toLowerCase().includes(title.toLowerCase()));
-                }
-                if (!targetArticle) {
-                    throw new McpError(ErrorCode.InvalidParams, 'Article not found. Please provide a valid articleId, url, or title.');
-                }
-                const content = await fetchArticleContent(targetArticle.url);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify({
-                                article: {
-                                    id: targetArticle.id,
-                                    title: targetArticle.title,
-                                    author: targetArticle.author,
-                                    publishedDate: targetArticle.publishedDate,
-                                    url: targetArticle.url,
-                                    topics: targetArticle.topics,
-                                    content: content,
-                                },
-                            }, null, 2),
-                        },
-                    ],
-                };
-            }
-            default:
-                throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+                ],
+                isError: true
+            };
         }
     }
-    catch (error) {
-        if (error instanceof McpError) {
-            throw error;
+    if (name === 'fetch') {
+        try {
+            const { id } = args;
+            // Fetch articles from Substack
+            const articles = await fetchSubstackFeed();
+            // Find the specific article
+            const article = articles.find(a => a.id === id);
+            if (!article) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify({ error: 'Article not found' })
+                        }
+                    ],
+                    isError: true
+                };
+            }
+            // Fetch full article content if available
+            let fullText = article.excerpt || '';
+            if (article.url) {
+                try {
+                    const articleUrl = article.url;
+                    const response = await fetch(articleUrl);
+                    const html = await response.text();
+                    // Basic HTML parsing to extract text content
+                    const textContent = html
+                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                        .replace(/<[^>]*>/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    if (textContent.length > 500) {
+                        fullText = textContent.substring(0, 2000) + '...';
+                    }
+                }
+                catch (fetchError) {
+                    // If we can't fetch full content, use what we have
+                    console.error('Failed to fetch full article content:', fetchError);
+                }
+            }
+            const result = {
+                id: article.id,
+                title: article.title,
+                text: fullText || article.title,
+                url: article.url,
+                metadata: {
+                    author: article.author || 'Unknown',
+                    published_date: article.publishedDate || '',
+                    excerpt: article.excerpt || ''
+                }
+            };
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(result)
+                    }
+                ]
+            };
         }
-        debugLog('Tool execution error', error);
-        throw new McpError(ErrorCode.InternalError, `Error executing tool ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        catch (error) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify({
+                            error: 'Failed to fetch article',
+                            message: error instanceof Error ? error.message : 'Unknown error'
+                        })
+                    }
+                ],
+                isError: true
+            };
+        }
     }
+    throw new Error(`Unknown tool: ${name}`);
 });
 // Create Express app for HTTP mode
 const app = express();
@@ -418,64 +352,33 @@ app.get('/tools', async (req, res) => {
     try {
         const tools = [
             {
-                name: 'list_articles',
-                description: 'List articles from the AI CoE Trilogy Substack feed',
+                name: 'search',
+                description: 'Searches for Trilogy AI Center of Excellence articles using the provided query string and returns matching results. Use keywords related to AI, machine learning, data science, technology trends, or author names to find relevant articles.',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        limit: {
-                            type: 'number',
-                            description: 'Maximum number of articles to return (default: 10)',
-                            default: 10,
-                        },
-                        author: {
+                        query: {
                             type: 'string',
-                            description: 'Filter articles by author name',
-                        },
-                        topic: {
-                            type: 'string',
-                            description: 'Filter articles by topic',
-                        },
+                            description: 'Search query to find relevant articles. Can include keywords, topics, author names, or phrases.'
+                        }
                     },
-                },
+                    required: ['query']
+                }
             },
             {
-                name: 'list_authors',
-                description: 'List all authors who have written articles',
-                inputSchema: {
-                    type: 'object',
-                    properties: {},
-                },
-            },
-            {
-                name: 'list_topics',
-                description: 'List all topics/categories covered in articles',
-                inputSchema: {
-                    type: 'object',
-                    properties: {},
-                },
-            },
-            {
-                name: 'read_article',
-                description: 'Read the full content of a specific article',
+                name: 'fetch',
+                description: 'Retrieves detailed content for a specific Trilogy AI CoE article identified by the given ID.',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        articleId: {
+                        id: {
                             type: 'string',
-                            description: 'The ID of the article to read',
-                        },
-                        url: {
-                            type: 'string',
-                            description: 'The URL of the article to read',
-                        },
-                        title: {
-                            type: 'string',
-                            description: 'The title of the article to read (will search for matching title)',
-                        },
+                            description: 'ID of the article to fetch full content for.'
+                        }
                     },
-                },
-            },
+                    required: ['id']
+                }
+            }
         ];
         res.json({ tools });
     }
@@ -490,106 +393,69 @@ app.post('/tools/:toolName', async (req, res) => {
     try {
         let result;
         switch (toolName) {
-            case 'list_articles': {
-                const { limit = 10, author, topic } = args;
+            case 'search': {
+                const { query } = args;
                 const articles = await fetchSubstackFeed();
-                let filteredArticles = articles;
-                if (author) {
-                    filteredArticles = filteredArticles.filter(article => article.author.toLowerCase().includes(author.toLowerCase()));
-                }
-                if (topic) {
-                    filteredArticles = filteredArticles.filter(article => article.topics.some(t => t.toLowerCase().includes(topic.toLowerCase())));
-                }
-                const limitedArticles = filteredArticles.slice(0, limit);
-                result = {
-                    articles: limitedArticles.map(article => ({
-                        id: article.id,
-                        title: article.title,
-                        author: article.author,
-                        publishedDate: article.publishedDate,
-                        url: article.url,
-                        excerpt: article.excerpt,
-                        topics: article.topics,
-                    })),
-                    total: filteredArticles.length,
-                    showing: limitedArticles.length,
-                };
+                // Search through articles
+                const searchTerms = query.toLowerCase().split(' ');
+                const results = articles
+                    .filter(article => {
+                    const searchText = `${article.title} ${article.excerpt || ''} ${article.author || ''}`.toLowerCase();
+                    return searchTerms.some((term) => searchText.includes(term));
+                })
+                    .slice(0, 10) // Limit to 10 results
+                    .map(article => ({
+                    id: article.id,
+                    title: article.title,
+                    text: article.excerpt || article.title,
+                    url: article.url
+                }));
+                result = { results };
                 break;
             }
-            case 'list_authors': {
+            case 'fetch': {
+                const { id } = args;
                 const articles = await fetchSubstackFeed();
-                const authorMap = new Map();
-                articles.forEach(article => {
-                    if (authorMap.has(article.author)) {
-                        const author = authorMap.get(article.author);
-                        author.articleCount++;
-                        if (new Date(article.publishedDate) > new Date(author.latestArticle)) {
-                            author.latestArticle = article.publishedDate;
+                // Find the specific article
+                const article = articles.find(a => a.id === id);
+                if (!article) {
+                    return res.status(404).json({ error: 'Article not found' });
+                }
+                // Fetch full article content if available
+                let fullText = article.excerpt || '';
+                if (article.url) {
+                    try {
+                        const articleUrl = article.url;
+                        const response = await fetch(articleUrl);
+                        const html = await response.text();
+                        // Basic HTML parsing to extract text content
+                        const textContent = html
+                            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                            .replace(/<[^>]*>/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                        if (textContent.length > 500) {
+                            fullText = textContent.substring(0, 2000) + '...';
                         }
                     }
-                    else {
-                        authorMap.set(article.author, {
-                            name: article.author,
-                            articleCount: 1,
-                            latestArticle: article.publishedDate,
-                        });
+                    catch (fetchError) {
+                        // If we can't fetch full content, use what we have
+                        console.error('Failed to fetch full article content:', fetchError);
                     }
-                });
-                const authors = Array.from(authorMap.values()).sort((a, b) => b.articleCount - a.articleCount);
-                result = { authors };
-                break;
-            }
-            case 'list_topics': {
-                const articles = await fetchSubstackFeed();
-                const topicMap = new Map();
-                articles.forEach(article => {
-                    article.topics.forEach(topic => {
-                        if (topicMap.has(topic)) {
-                            const topicData = topicMap.get(topic);
-                            topicData.articleCount++;
-                            topicData.articles.push(article.title);
-                        }
-                        else {
-                            topicMap.set(topic, {
-                                name: topic,
-                                articleCount: 1,
-                                articles: [article.title],
-                            });
-                        }
-                    });
-                });
-                const topics = Array.from(topicMap.values()).sort((a, b) => b.articleCount - a.articleCount);
-                result = { topics };
-                break;
-            }
-            case 'read_article': {
-                const { articleId, url, title } = args;
-                const articles = await fetchSubstackFeed();
-                let targetArticle;
-                if (articleId) {
-                    targetArticle = articles.find(article => article.id === articleId);
                 }
-                else if (url) {
-                    targetArticle = articles.find(article => article.url === url);
-                }
-                else if (title) {
-                    targetArticle = articles.find(article => article.title.toLowerCase().includes(title.toLowerCase()));
-                }
-                if (!targetArticle) {
-                    return res.status(404).json({ error: 'Article not found. Please provide a valid articleId, url, or title.' });
-                }
-                const content = await fetchArticleContent(targetArticle.url);
-                result = {
-                    article: {
-                        id: targetArticle.id,
-                        title: targetArticle.title,
-                        author: targetArticle.author,
-                        publishedDate: targetArticle.publishedDate,
-                        url: targetArticle.url,
-                        topics: targetArticle.topics,
-                        content: content,
-                    },
+                const articleResult = {
+                    id: article.id,
+                    title: article.title,
+                    text: fullText || article.title,
+                    url: article.url,
+                    metadata: {
+                        author: article.author || 'Unknown',
+                        published_date: article.publishedDate || '',
+                        excerpt: article.excerpt || ''
+                    }
                 };
+                result = articleResult;
                 break;
             }
             default:
@@ -654,64 +520,33 @@ app.post('/mcp', async (req, res) => {
                 result = {
                     tools: [
                         {
-                            name: 'list_articles',
-                            description: 'List articles from the AI CoE Trilogy Substack feed',
+                            name: 'search',
+                            description: 'Searches for Trilogy AI Center of Excellence articles using the provided query string and returns matching results. Use keywords related to AI, machine learning, data science, technology trends, or author names to find relevant articles.',
                             inputSchema: {
                                 type: 'object',
                                 properties: {
-                                    limit: {
-                                        type: 'number',
-                                        description: 'Maximum number of articles to return (default: 10)',
-                                        default: 10,
-                                    },
-                                    author: {
+                                    query: {
                                         type: 'string',
-                                        description: 'Filter articles by author name',
-                                    },
-                                    topic: {
-                                        type: 'string',
-                                        description: 'Filter articles by topic',
-                                    },
+                                        description: 'Search query to find relevant articles. Can include keywords, topics, author names, or phrases.'
+                                    }
                                 },
-                            },
+                                required: ['query']
+                            }
                         },
                         {
-                            name: 'list_authors',
-                            description: 'List all authors who have written articles',
-                            inputSchema: {
-                                type: 'object',
-                                properties: {},
-                            },
-                        },
-                        {
-                            name: 'list_topics',
-                            description: 'List all topics/categories covered in articles',
-                            inputSchema: {
-                                type: 'object',
-                                properties: {},
-                            },
-                        },
-                        {
-                            name: 'read_article',
-                            description: 'Read the full content of a specific article',
+                            name: 'fetch',
+                            description: 'Retrieves detailed content for a specific Trilogy AI CoE article identified by the given ID.',
                             inputSchema: {
                                 type: 'object',
                                 properties: {
-                                    articleId: {
+                                    id: {
                                         type: 'string',
-                                        description: 'The ID of the article to read',
-                                    },
-                                    url: {
-                                        type: 'string',
-                                        description: 'The URL of the article to read',
-                                    },
-                                    title: {
-                                        type: 'string',
-                                        description: 'The title of the article to read (will search for matching title)',
-                                    },
+                                        description: 'ID of the article to fetch full content for.'
+                                    }
                                 },
-                            },
-                        },
+                                required: ['id']
+                            }
+                        }
                     ],
                 };
                 break;
@@ -719,140 +554,89 @@ app.post('/mcp', async (req, res) => {
             case 'tools/call': {
                 const { name: toolName, arguments: args } = params;
                 switch (toolName) {
-                    case 'list_articles': {
-                        const { limit = 10, author, topic } = args || {};
+                    case 'search': {
+                        const { query } = args || {};
                         const articles = await fetchSubstackFeed();
-                        let filteredArticles = articles;
-                        if (author) {
-                            filteredArticles = filteredArticles.filter(article => article.author.toLowerCase().includes(author.toLowerCase()));
-                        }
-                        if (topic) {
-                            filteredArticles = filteredArticles.filter(article => article.topics.some(t => t.toLowerCase().includes(topic.toLowerCase())));
-                        }
-                        const limitedArticles = filteredArticles.slice(0, limit);
+                        // Search through articles
+                        const searchTerms = query.toLowerCase().split(' ');
+                        const results = articles
+                            .filter(article => {
+                            const searchText = `${article.title} ${article.excerpt || ''} ${article.author || ''}`.toLowerCase();
+                            return searchTerms.some((term) => searchText.includes(term));
+                        })
+                            .slice(0, 10) // Limit to 10 results
+                            .map(article => ({
+                            id: article.id,
+                            title: article.title,
+                            text: article.excerpt || article.title,
+                            url: article.url
+                        }));
                         result = {
                             content: [
                                 {
                                     type: 'text',
-                                    text: JSON.stringify({
-                                        articles: limitedArticles.map(article => ({
-                                            id: article.id,
-                                            title: article.title,
-                                            author: article.author,
-                                            publishedDate: article.publishedDate,
-                                            url: article.url,
-                                            excerpt: article.excerpt,
-                                            topics: article.topics,
-                                        })),
-                                        total: filteredArticles.length,
-                                        showing: limitedArticles.length,
-                                    }, null, 2),
-                                },
-                            ],
+                                    text: JSON.stringify({ results })
+                                }
+                            ]
                         };
                         break;
                     }
-                    case 'list_authors': {
+                    case 'fetch': {
+                        const { id } = args || {};
                         const articles = await fetchSubstackFeed();
-                        const authorMap = new Map();
-                        articles.forEach(article => {
-                            if (authorMap.has(article.author)) {
-                                const author = authorMap.get(article.author);
-                                author.articleCount++;
-                                if (new Date(article.publishedDate) > new Date(author.latestArticle)) {
-                                    author.latestArticle = article.publishedDate;
-                                }
-                            }
-                            else {
-                                authorMap.set(article.author, {
-                                    name: article.author,
-                                    articleCount: 1,
-                                    latestArticle: article.publishedDate,
-                                });
-                            }
-                        });
-                        const authors = Array.from(authorMap.values()).sort((a, b) => b.articleCount - a.articleCount);
-                        result = {
-                            content: [
-                                {
-                                    type: 'text',
-                                    text: JSON.stringify({ authors }, null, 2),
-                                },
-                            ],
-                        };
-                        break;
-                    }
-                    case 'list_topics': {
-                        const articles = await fetchSubstackFeed();
-                        const topicMap = new Map();
-                        articles.forEach(article => {
-                            article.topics.forEach(topic => {
-                                if (topicMap.has(topic)) {
-                                    const topicData = topicMap.get(topic);
-                                    topicData.articleCount++;
-                                    topicData.articles.push(article.title);
-                                }
-                                else {
-                                    topicMap.set(topic, {
-                                        name: topic,
-                                        articleCount: 1,
-                                        articles: [article.title],
-                                    });
-                                }
-                            });
-                        });
-                        const topics = Array.from(topicMap.values()).sort((a, b) => b.articleCount - a.articleCount);
-                        result = {
-                            content: [
-                                {
-                                    type: 'text',
-                                    text: JSON.stringify({ topics }, null, 2),
-                                },
-                            ],
-                        };
-                        break;
-                    }
-                    case 'read_article': {
-                        const { articleId, url, title } = args || {};
-                        const articles = await fetchSubstackFeed();
-                        let targetArticle;
-                        if (articleId) {
-                            targetArticle = articles.find(article => article.id === articleId);
-                        }
-                        else if (url) {
-                            targetArticle = articles.find(article => article.url === url);
-                        }
-                        else if (title) {
-                            targetArticle = articles.find(article => article.title.toLowerCase().includes(title.toLowerCase()));
-                        }
-                        if (!targetArticle) {
+                        // Find the specific article
+                        const article = articles.find(a => a.id === id);
+                        if (!article) {
                             return res.json({
                                 jsonrpc: '2.0',
                                 error: {
                                     code: -32602,
-                                    message: 'Article not found. Please provide a valid articleId, url, or title.'
+                                    message: 'Article not found'
                                 },
                                 id
                             });
                         }
-                        const content = await fetchArticleContent(targetArticle.url);
+                        // Fetch full article content if available
+                        let fullText = article.excerpt || '';
+                        if (article.url) {
+                            try {
+                                const articleUrl = article.url;
+                                const response = await fetch(articleUrl);
+                                const html = await response.text();
+                                // Basic HTML parsing to extract text content
+                                const textContent = html
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                    .replace(/<[^>]*>/g, ' ')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                                if (textContent.length > 500) {
+                                    fullText = textContent.substring(0, 2000) + '...';
+                                }
+                            }
+                            catch (fetchError) {
+                                // If we can't fetch full content, use what we have
+                                console.error('Failed to fetch full article content:', fetchError);
+                            }
+                        }
+                        const articleResult = {
+                            id: article.id,
+                            title: article.title,
+                            text: fullText || article.title,
+                            url: article.url,
+                            metadata: {
+                                author: article.author || 'Unknown',
+                                published_date: article.publishedDate || '',
+                                excerpt: article.excerpt || ''
+                            }
+                        };
                         result = {
                             content: [
                                 {
                                     type: 'text',
-                                    text: JSON.stringify({
-                                        article: {
-                                            id: targetArticle.id,
-                                            title: targetArticle.title,
-                                            author: targetArticle.author,
-                                            publishedDate: targetArticle.publishedDate,
-                                            url: targetArticle.url,
-                                            topics: targetArticle.topics,
-                                            content: content,
-                                        },
-                                    }, null, 2),
-                                },
-                            ],
+                                    text: JSON.stringify(articleResult)
+                                }
+                            ]
                         };
                         break;
                     }
