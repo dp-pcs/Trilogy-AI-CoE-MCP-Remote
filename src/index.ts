@@ -475,8 +475,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Create Express app for HTTP mode
 const app = express();
-app.use(cors());
+
+// Enhanced CORS configuration for ChatGPT and other MCP clients
+app.use(cors({
+  origin: true, // Allow all origins for MCP compatibility
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  credentials: false,
+  maxAge: 86400 // Cache preflight for 24 hours
+}));
+
 app.use(express.json());
+
+// Additional headers for browser compatibility
+app.use((req, res, next) => {
+  // Ensure CORS headers are always present
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Security headers
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(204).send();
+    return;
+  }
+  
+  next();
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
