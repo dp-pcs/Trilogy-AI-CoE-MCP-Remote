@@ -260,15 +260,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         output_schema: {
           type: 'object',
           properties: {
-            ids: {
+            results: {
               type: 'array',
               items: {
-                type: 'string'
-              },
-              description: 'Array of resource IDs matching the search query.'
+                type: 'object',
+                properties: {
+                  id: {
+                    type: 'string',
+                    description: 'ID of the resource.'
+                  },
+                  title: {
+                    type: 'string',
+                    description: 'Title or headline of the resource.'
+                  },
+                  text: {
+                    type: 'string',
+                    description: 'Text snippet or summary from the resource.'
+                  },
+                  url: {
+                    type: ['string', 'null'],
+                    description: 'URL of the resource. Optional but needed for citations to work.'
+                  }
+                },
+                required: ['id', 'title', 'text']
+              }
             }
           },
-          required: ['ids']
+          required: ['results']
         }
       },
       {
@@ -331,19 +349,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       // Search through articles
       const searchTerms = query.toLowerCase().split(' ');
-      const matchingIds = articles
+      const results = articles
         .filter(article => {
           const searchText = `${article.title} ${article.excerpt || ''} ${article.author || ''}`.toLowerCase();
           return searchTerms.some((term: string) => searchText.includes(term));
         })
         .slice(0, 10) // Limit to 10 results
-        .map(article => article.id);
+        .map(article => ({
+          id: article.id,
+          title: article.title,
+          text: article.excerpt || article.title,
+          url: article.url
+        }));
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({ ids: matchingIds })
+            text: JSON.stringify({ results })
           }
         ]
       };
@@ -517,15 +540,33 @@ app.get('/tools', async (req, res) => {
         output_schema: {
           type: 'object',
           properties: {
-            ids: {
+            results: {
               type: 'array',
               items: {
-                type: 'string'
-              },
-              description: 'Array of resource IDs matching the search query.'
+                type: 'object',
+                properties: {
+                  id: {
+                    type: 'string',
+                    description: 'ID of the resource.'
+                  },
+                  title: {
+                    type: 'string',
+                    description: 'Title or headline of the resource.'
+                  },
+                  text: {
+                    type: 'string',
+                    description: 'Text snippet or summary from the resource.'
+                  },
+                  url: {
+                    type: ['string', 'null'],
+                    description: 'URL of the resource. Optional but needed for citations to work.'
+                  }
+                },
+                required: ['id', 'title', 'text']
+              }
             }
           },
-          required: ['ids']
+          required: ['results']
         }
       },
       {
@@ -594,15 +635,20 @@ app.post('/tools/:toolName', async (req, res) => {
         
         // Search through articles
         const searchTerms = query.toLowerCase().split(' ');
-        const matchingIds = articles
+        const results = articles
           .filter(article => {
             const searchText = `${article.title} ${article.excerpt || ''} ${article.author || ''}`.toLowerCase();
             return searchTerms.some((term: string) => searchText.includes(term));
           })
           .slice(0, 10) // Limit to 10 results
-          .map(article => article.id);
+          .map(article => ({
+            id: article.id,
+            title: article.title,
+            text: article.excerpt || article.title,
+            url: article.url
+          }));
 
-        result = { ids: matchingIds };
+        result = { results };
         break;
       }
 
@@ -742,15 +788,33 @@ app.post('/mcp', async (req, res) => {
               output_schema: {
                 type: 'object',
                 properties: {
-                  ids: {
+                  results: {
                     type: 'array',
                     items: {
-                      type: 'string'
-                    },
-                    description: 'Array of resource IDs matching the search query.'
+                      type: 'object',
+                      properties: {
+                        id: {
+                          type: 'string',
+                          description: 'ID of the resource.'
+                        },
+                        title: {
+                          type: 'string',
+                          description: 'Title or headline of the resource.'
+                        },
+                        text: {
+                          type: 'string',
+                          description: 'Text snippet or summary from the resource.'
+                        },
+                        url: {
+                          type: ['string', 'null'],
+                          description: 'URL of the resource. Optional but needed for citations to work.'
+                        }
+                      },
+                      required: ['id', 'title', 'text']
+                    }
                   }
                 },
-                required: ['ids']
+                required: ['results']
               }
             },
             {
@@ -811,19 +875,24 @@ app.post('/mcp', async (req, res) => {
             
             // Search through articles
             const searchTerms = query.toLowerCase().split(' ');
-            const matchingIds = articles
+            const matchingResults = articles
               .filter(article => {
                 const searchText = `${article.title} ${article.excerpt || ''} ${article.author || ''}`.toLowerCase();
                 return searchTerms.some((term: string) => searchText.includes(term));
               })
               .slice(0, 10) // Limit to 10 results
-              .map(article => article.id);
+              .map(article => ({
+                id: article.id,
+                title: article.title,
+                text: article.excerpt || article.title,
+                url: article.url
+              }));
 
             result = {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({ ids: matchingIds })
+                  text: JSON.stringify({ results: matchingResults })
                 }
               ]
             };
