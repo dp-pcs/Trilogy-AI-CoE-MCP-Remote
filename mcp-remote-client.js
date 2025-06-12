@@ -8,6 +8,23 @@ import {
   InitializeRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+// Check if fetch is available, import node-fetch as fallback
+let fetchFunction;
+if (typeof fetch !== 'undefined') {
+  fetchFunction = fetch;
+  console.error('Using built-in fetch');
+} else {
+  console.error('Built-in fetch not available, trying to import node-fetch');
+  try {
+    const nodeFetch = await import('node-fetch');
+    fetchFunction = nodeFetch.default;
+    console.error('Using node-fetch fallback');
+  } catch (error) {
+    console.error('Failed to import node-fetch:', error);
+    throw new Error('No fetch implementation available');
+  }
+}
+
 const REMOTE_SERVER_URL = 'https://ai-coe-mcp.latentgenius.ai';
 
 // Create MCP server that proxies to remote HTTP server
@@ -26,8 +43,10 @@ const server = new Server(
 // Fetch tools from remote server
 async function fetchRemoteTools() {
   try {
-    const response = await fetch(`${REMOTE_SERVER_URL}/tools`);
+    console.error(`Attempting to fetch tools from ${REMOTE_SERVER_URL}/tools`);
+    const response = await fetchFunction(`${REMOTE_SERVER_URL}/tools`);
     const data = await response.json();
+    console.error(`Successfully fetched ${data.tools?.length || 0} tools`);
     return data.tools || [];
   } catch (error) {
     console.error('Failed to fetch tools from remote server:', error);
@@ -38,7 +57,7 @@ async function fetchRemoteTools() {
 // Execute tool on remote server
 async function executeRemoteTool(toolName, args) {
   try {
-    const response = await fetch(`${REMOTE_SERVER_URL}/tools/${toolName}`, {
+    const response = await fetchFunction(`${REMOTE_SERVER_URL}/tools/${toolName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
