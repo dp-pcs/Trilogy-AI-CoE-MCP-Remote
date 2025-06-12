@@ -246,13 +246,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'search',
-        description: 'Searches for resources using the provided query string and returns matching IDs.',
+        description: 'Searches for Trilogy AI Center of Excellence articles and returns matching resource IDs.\n\nPurpose:\n1. Search through Trilogy AI CoE Substack articles by keywords, topics, authors, or concepts\n2. Returns only IDs - use the fetch tool to get full content for specific articles\n3. Supports both broad topic searches and specific technical queries\n\nUsage:\n1. Use specific technical terms for targeted results (e.g., "agentic frameworks", "machine learning", "enterprise AI")\n2. Search by author names to find their specific content (e.g., "David Proctor")\n3. Combine multiple keywords for refined searches (e.g., "AI strategy implementation")\n4. Use broad terms for comprehensive overviews (e.g., "artificial intelligence", "automation")\n5. Search for industry concepts (e.g., "transformation", "best practices", "case studies")\n\nQuery Formation:\n• Single keywords: "AI", "automation", "strategy"\n• Multiple keywords: "agentic AI frameworks", "enterprise machine learning"\n• Author searches: "David Proctor insights", "Trilogy team"\n• Topic combinations: "AI implementation best practices"\n• Technical terms: "LLMs", "neural networks", "data science", "MLOps"\n\nContent Areas Available:\n• Enterprise AI strategy and implementation\n• Agentic AI frameworks and automation\n• Machine learning best practices\n• Data science methodologies\n• AI transformation case studies\n• Technical leadership insights\n• Industry analysis and trends\n\nExamples:\n• "agentic frameworks" → finds articles about agentic AI systems\n• "David Proctor enterprise AI" → finds David\'s articles on enterprise AI\n• "machine learning best practices" → finds ML methodology articles\n• "AI transformation case studies" → finds implementation examples\n• "automation strategy" → finds articles on automation approaches',
         input_schema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Search query.'
+              description: 'Search query for Trilogy AI CoE articles. Use specific technical terms, author names, or topic combinations for best results.'
             }
           },
           required: ['query']
@@ -273,13 +273,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'fetch',
-        description: 'Retrieves detailed content for a specific resource identified by the given ID.',
+        description: 'Retrieves detailed content for a specific resource identified by the given ID.\n\nPurpose:\n1. Get complete article content including full text, metadata, and citations\n2. Use after search to get detailed information about specific articles\n3. Provides structured data with title, content, URL, and metadata\n\nUsage:\n1. Always use this tool after search to get full article content\n2. The ID must be from a search result\n3. Returns complete article text for analysis and citation\n4. Includes author, publication date, and source URL for proper attribution\n\nResponse Format:\n• id: Unique identifier for the article\n• title: Full article headline\n• text: Complete article content (up to 2000 characters)\n• url: Source URL for citations and further reading\n• metadata: Author, publication date, and excerpt information',
         input_schema: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
-              description: 'ID of the resource to fetch.'
+              description: 'ID of the resource to fetch (must be from search results).'
             }
           },
           required: ['id']
@@ -503,13 +503,13 @@ app.get('/tools', async (req, res) => {
     const tools = [
       {
         name: 'search',
-        description: 'Searches for resources using the provided query string and returns matching IDs.',
+        description: 'Searches for Trilogy AI Center of Excellence articles and returns matching resource IDs.\n\nPurpose:\n1. Search through Trilogy AI CoE Substack articles by keywords, topics, authors, or concepts\n2. Returns only IDs - use the fetch tool to get full content for specific articles\n3. Supports both broad topic searches and specific technical queries\n\nUsage:\n1. Use specific technical terms for targeted results (e.g., "agentic frameworks", "machine learning", "enterprise AI")\n2. Search by author names to find their specific content (e.g., "David Proctor")\n3. Combine multiple keywords for refined searches (e.g., "AI strategy implementation")\n4. Use broad terms for comprehensive overviews (e.g., "artificial intelligence", "automation")\n5. Search for industry concepts (e.g., "transformation", "best practices", "case studies")\n\nQuery Formation:\n• Single keywords: "AI", "automation", "strategy"\n• Multiple keywords: "agentic AI frameworks", "enterprise machine learning"\n• Author searches: "David Proctor insights", "Trilogy team"\n• Topic combinations: "AI implementation best practices"\n• Technical terms: "LLMs", "neural networks", "data science", "MLOps"\n\nContent Areas Available:\n• Enterprise AI strategy and implementation\n• Agentic AI frameworks and automation\n• Machine learning best practices\n• Data science methodologies\n• AI transformation case studies\n• Technical leadership insights\n• Industry analysis and trends\n\nExamples:\n• "agentic frameworks" → finds articles about agentic AI systems\n• "David Proctor enterprise AI" → finds David\'s articles on enterprise AI\n• "machine learning best practices" → finds ML methodology articles\n• "AI transformation case studies" → finds implementation examples\n• "automation strategy" → finds articles on automation approaches',
         input_schema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Search query.'
+              description: 'Search query for Trilogy AI CoE articles. Use specific technical terms, author names, or topic combinations for best results.'
             }
           },
           required: ['query']
@@ -728,13 +728,13 @@ app.post('/mcp', async (req, res) => {
           tools: [
             {
               name: 'search',
-              description: 'Searches for resources using the provided query string and returns matching IDs.',
+              description: 'Searches for Trilogy AI Center of Excellence articles and returns matching resource IDs.\n\nPurpose:\n1. Search through Trilogy AI CoE Substack articles by keywords, topics, authors, or concepts\n2. Returns only IDs - use the fetch tool to get full content for specific articles\n3. Supports both broad topic searches and specific technical queries\n\nUsage:\n1. Use specific technical terms for targeted results (e.g., "agentic frameworks", "machine learning", "enterprise AI")\n2. Search by author names to find their specific content (e.g., "David Proctor")\n3. Combine multiple keywords for refined searches (e.g., "AI strategy implementation")\n4. Use broad terms for comprehensive overviews (e.g., "artificial intelligence", "automation")\n5. Search for industry concepts (e.g., "transformation", "best practices", "case studies")\n\nQuery Formation:\n• Single keywords: "AI", "automation", "strategy"\n• Multiple keywords: "agentic AI frameworks", "enterprise machine learning"\n• Author searches: "David Proctor insights", "Trilogy team"\n• Topic combinations: "AI implementation best practices"\n• Technical terms: "LLMs", "neural networks", "data science", "MLOps"\n\nContent Areas Available:\n• Enterprise AI strategy and implementation\n• Agentic AI frameworks and automation\n• Machine learning best practices\n• Data science methodologies\n• AI transformation case studies\n• Technical leadership insights\n• Industry analysis and trends\n\nExamples:\n• "agentic frameworks" → finds articles about agentic AI systems\n• "David Proctor enterprise AI" → finds David\'s articles on enterprise AI\n• "machine learning best practices" → finds ML methodology articles\n• "AI transformation case studies" → finds implementation examples\n• "automation strategy" → finds articles on automation approaches',
               input_schema: {
                 type: 'object',
                 properties: {
                   query: {
                     type: 'string',
-                    description: 'Search query.'
+                    description: 'Search query for Trilogy AI CoE articles. Use specific technical terms, author names, or topic combinations for best results.'
                   }
                 },
                 required: ['query']
