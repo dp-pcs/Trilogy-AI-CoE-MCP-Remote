@@ -27,7 +27,7 @@ Before you begin, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/Trilogy-AI-CoE-MCP-Remote.git
+git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP-Remote.git
 cd Trilogy-AI-CoE-MCP-Remote
 
 # Install dependencies (for the client script)

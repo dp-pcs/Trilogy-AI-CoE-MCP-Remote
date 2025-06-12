@@ -148,7 +148,7 @@ Want to run your own instance?
 
 ```bash
 # Clone and setup
-git clone https://github.com/your-username/trilogy-ai-coe-mcp-remote.git
+git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP-Remote.git
 cd trilogy-ai-coe-mcp-remote
 npm install
 
