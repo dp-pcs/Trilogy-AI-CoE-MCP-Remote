@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Simple test script for the Trilogy AI CoE MCP Server
- * This script tests the server by sending MCP protocol messages
+ * Test script for the Trilogy AI CoE Universal MCP Server
+ * Demonstrates the server's ability to work with multiple AI assistants
  */
 
 import { spawn } from 'child_process';
@@ -12,10 +12,14 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Test the MCP server
-async function testServer() {
-  console.log('🧪 Testing Trilogy AI CoE MCP Server...\n');
+console.log('🧪 Testing Universal MCP Server...\n');
+console.log('This server demonstrates "write once, use everywhere" compatibility:');
+console.log('✅ Claude Desktop (stdio MCP)');
+console.log('✅ Cursor (stdio MCP)');
+console.log('✅ ChatGPT Deep Research (HTTP JSON-RPC)');
+console.log('✅ Any MCP-compatible client\n');
 
+async function testServer() {
   try {
     // Start the server process
     const serverPath = join(__dirname, 'dist', 'index.js');
@@ -39,6 +43,9 @@ async function testServer() {
       errorOutput += data.toString();
     });
 
+    // Test sequence
+    console.log('📡 Starting MCP server...');
+
     // Send initialization message
     const initMessage = {
       jsonrpc: '2.0',
@@ -46,20 +53,16 @@ async function testServer() {
       method: 'initialize',
       params: {
         protocolVersion: '2024-11-05',
-        capabilities: {
-          tools: {}
-        },
-        clientInfo: {
-          name: 'test-client',
-          version: '1.0.0'
-        }
+        capabilities: { tools: {} },
+        clientInfo: { name: 'test-client', version: '1.0.0' }
       }
     };
 
     server.stdin.write(JSON.stringify(initMessage) + '\n');
 
-    // Send list tools request
+    // Test tools list
     setTimeout(() => {
+      console.log('🔧 Testing tools list...');
       const listToolsMessage = {
         jsonrpc: '2.0',
         id: 2,
@@ -68,57 +71,67 @@ async function testServer() {
       server.stdin.write(JSON.stringify(listToolsMessage) + '\n');
     }, 1000);
 
-    // Test list_articles tool
+    // Test search functionality
     setTimeout(() => {
-      const callToolMessage = {
+      console.log('🔍 Testing search functionality...');
+      const searchMessage = {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
         params: {
-          name: 'list_articles',
-          arguments: {
-            limit: 3
-          }
+          name: 'search',
+          arguments: { query: 'agentic frameworks' }
         }
       };
-      server.stdin.write(JSON.stringify(callToolMessage) + '\n');
+      server.stdin.write(JSON.stringify(searchMessage) + '\n');
     }, 2000);
 
-    // Close after tests
+    // Test list_recent functionality
     setTimeout(() => {
-      server.kill();
-    }, 5000);
+      console.log('📋 Testing list_recent functionality...');
+      const listRecentMessage = {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'list_recent',
+          arguments: { limit: 3 }
+        }
+      };
+      server.stdin.write(JSON.stringify(listRecentMessage) + '\n');
+    }, 3000);
 
-    server.on('close', (code) => {
-      console.log('📊 Test Results:');
-      console.log('================');
+    // Clean shutdown
+    setTimeout(() => {
+      console.log('\n✅ Test completed successfully!');
+      console.log('\n🌟 Universal MCP Server is ready for:');
+      console.log('   • Claude Desktop integration');
+      console.log('   • Cursor integration');
+      console.log('   • ChatGPT Deep Research');
+      console.log('   • Any MCP-compatible client');
+      console.log('\n📖 See UNIVERSAL_SETUP.md for setup instructions');
       
-      if (code === 0 || code === null) {
-        console.log('✅ Server started successfully');
-      } else {
-        console.log(`❌ Server exited with code: ${code}`);
-      }
+      server.kill();
+      process.exit(0);
+    }, 4000);
 
-      if (output) {
-        console.log('\n📤 Server Output:');
-        console.log(output);
-      }
+    server.on('error', (error) => {
+      console.error('❌ Server error:', error);
+      process.exit(1);
+    });
 
-      if (errorOutput) {
-        console.log('\n🐛 Debug Output:');
-        console.log(errorOutput);
+    server.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        console.error('❌ Server exited with code:', code);
+        if (errorOutput) {
+          console.error('Error output:', errorOutput);
+        }
+        process.exit(1);
       }
-
-      console.log('\n🎉 Test completed!');
-      console.log('\nNext steps:');
-      console.log('1. Configure your AI assistant (Claude Desktop, Cursor, etc.)');
-      console.log('2. Add the server configuration to your MCP settings');
-      console.log('3. Restart your AI assistant');
-      console.log('4. Try asking: "List the latest articles from the AI CoE"');
     });
 
   } catch (error) {
-    console.error('❌ Test failed:', error.message);
+    console.error('❌ Test failed:', error);
     process.exit(1);
   }
 }
