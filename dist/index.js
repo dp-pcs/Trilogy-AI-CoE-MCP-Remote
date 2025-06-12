@@ -7,6 +7,24 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import express from 'express';
 import cors from 'cors';
+// Check if fetch is available, import node-fetch as fallback
+let fetchFunction;
+if (typeof fetch !== 'undefined') {
+    fetchFunction = fetch;
+    console.log('Using built-in fetch');
+}
+else {
+    console.log('Built-in fetch not available, trying to import node-fetch');
+    try {
+        const nodeFetch = await import('node-fetch');
+        fetchFunction = nodeFetch.default;
+        console.log('Using node-fetch fallback');
+    }
+    catch (error) {
+        console.error('Failed to import node-fetch:', error);
+        throw new Error('No fetch implementation available');
+    }
+}
 // Environment configuration
 const SUBSTACK_FEED_URL = process.env.SUBSTACK_FEED_URL || 'https://trilogyai.substack.com';
 const DEBUG = process.env.DEBUG === 'true';
@@ -344,7 +362,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (article.url) {
                 try {
                     const articleUrl = article.url;
-                    const response = await fetch(articleUrl);
+                    const response = await fetchFunction(articleUrl);
                     const html = await response.text();
                     // Basic HTML parsing to extract text content
                     const textContent = html
@@ -577,7 +595,7 @@ app.post('/tools/:toolName', async (req, res) => {
                 if (article.url) {
                     try {
                         const articleUrl = article.url;
-                        const response = await fetch(articleUrl);
+                        const response = await fetchFunction(articleUrl);
                         const html = await response.text();
                         // Basic HTML parsing to extract text content
                         const textContent = html
@@ -812,7 +830,7 @@ app.post('/mcp', async (req, res) => {
                         if (article.url) {
                             try {
                                 const articleUrl = article.url;
-                                const response = await fetch(articleUrl);
+                                const response = await fetchFunction(articleUrl);
                                 const html = await response.text();
                                 // Basic HTML parsing to extract text content
                                 const textContent = html
