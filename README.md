@@ -29,13 +29,19 @@ The Model Context Protocol (MCP) is an open standard that enables AI assistants 
 
 ### For ChatGPT (Recommended)
 
+**📋 For complete setup instructions with detailed usage guidelines, see [CHATGPT_CONNECTOR_SETUP.md](./CHATGPT_CONNECTOR_SETUP.md)**
+
+**Quick Setup:**
 1. Go to ChatGPT Settings → Connectors
 2. Add a new MCP Server with:
    - **Name**: `Trilogy AI CoE MCP Server`
-   - **Description**: `Trilogy AI Center of Excellence MCP Server`
+   - **Description**: `Access to Trilogy AI Center of Excellence articles and insights for enterprise AI strategy, implementation, and thought leadership`
    - **MCP Server URL**: `https://ai-coe-mcp.latentgenius.ai/mcp`
    - **Authentication**: `No authentication`
-3. Save and start using Deep Research with Trilogy AI CoE content!
+3. **Important**: Copy the detailed usage instructions from [CHATGPT_CONNECTOR_SETUP.md](./CHATGPT_CONNECTOR_SETUP.md) into the connector's description field
+4. Save and start using Deep Research with Trilogy AI CoE content!
+
+**Why detailed instructions matter**: ChatGPT's Deep Research feature works best when it understands exactly what content is available and how to search effectively. The detailed usage instructions act as a "prompt" that helps ChatGPT know when and how to use your connector optimally.
 
 ### For Claude Desktop
 
