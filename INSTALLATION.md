@@ -1,267 +1,282 @@
-# Installation Guide - Trilogy AI CoE MCP Server
+# Installation Guide - Trilogy AI CoE Universal MCP Server
 
-This guide will walk you through installing and configuring the Trilogy AI CoE MCP Server to work with your AI assistant.
+This guide will walk you through connecting to the **remote** Trilogy AI CoE MCP Server. No local server installation required - just connect your AI assistant to our live server!
+
+## 🌟 What Makes This Universal
+
+This MCP server demonstrates **"write once, use everywhere"** - one server works with multiple AI assistants:
+
+- ✅ **Claude Desktop** - Native MCP integration
+- ✅ **Cursor** - Same configuration works
+- ✅ **ChatGPT** - HTTP endpoint compatibility (beta)
+- ✅ **Any MCP-compatible client**
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, ensure you have:
 
 - **Node.js 18 or higher** - [Download from nodejs.org](https://nodejs.org/)
-- **npm** (comes with Node.js) or **yarn**
 - **Git** - [Download from git-scm.com](https://git-scm.com/)
 - An MCP-compatible AI assistant:
   - [Claude Desktop](https://claude.ai/download)
   - [Cursor](https://cursor.sh/)
-  - [Windsurf](https://codeium.com/windsurf)
 
-## Step 1: Clone and Install
+## Step 1: Get the MCP Client
 
-### Option A: Clone from GitHub
+### Clone the Repository
 
 ```bash
 # Clone the repository
-git clone https://github.com/dp-pcs/Trilogy-AI-CoE-MCP.git
-cd Trilogy-AI-CoE-MCP
+git clone https://github.com/your-username/Trilogy-AI-CoE-MCP-Remote.git
+cd Trilogy-AI-CoE-MCP-Remote
 
-# Install dependencies
+# Install dependencies (for the client script)
 npm install
 ```
 
-### Option B: Download ZIP
+### What You Get
 
-1. Download the ZIP file from the GitHub repository
-2. Extract it to your desired location
-3. Open terminal/command prompt in the extracted folder
-4. Run `npm install`
+- **`mcp-remote-client.js`** - Local client that connects to our remote server
+- **Live server** - `https://ai-coe-mcp.latentgenius.ai` (no setup required)
+- **Universal compatibility** - Works with Claude, Cursor, and more
 
-## Step 2: Configure Environment
-
-```bash
-# Copy the example environment file
-cp env.example .env
-
-# Edit the .env file with your preferred settings
-# The default Substack URL should work, but you can customize it
-```
-
-Example `.env` file:
-```env
-SUBSTACK_FEED_URL=https://trilogyai.substack.com
-DEBUG=false
-PORT=3000
-```
-
-## Step 3: Build the Server
-
-```bash
-# Build the TypeScript code
-npm run build
-```
-
-This creates a `dist/` folder with the compiled JavaScript.
-
-## Step 4: Test the Installation
-
-```bash
-# Run the test script
-npm test
-```
-
-You should see output indicating the server started successfully and can fetch articles.
-
-## Step 5: Configure Your AI Assistant
+## Step 2: Configure Your AI Assistant
 
 ### For Claude Desktop
 
-1. **Open Claude Desktop**
-2. **Go to Settings** (gear icon in bottom left)
-3. **Click on "Developer"** tab
-4. **Edit the MCP configuration** by adding:
+1. **Find your Claude config directory**:
+   - **macOS**: `~/Library/Application Support/Claude/`
+   - **Linux**: `~/.config/claude/`
+   - **Windows**: `%APPDATA%\Claude\`
+
+2. **Edit `claude_desktop_config.json`** (create if it doesn't exist):
 
 ```json
 {
   "mcpServers": {
     "trilogy-ai-coe": {
       "command": "node",
-             "args": ["/FULL/PATH/TO/YOUR/Trilogy-AI-CoE-MCP/dist/index.js"],
-       "env": {
-         "SUBSTACK_FEED_URL": "https://trilogyai.substack.com"
-       }
+      "args": ["/FULL/PATH/TO/Trilogy-AI-CoE-MCP-Remote/mcp-remote-client.js"]
     }
   }
 }
 ```
 
-**Important**: Replace `/FULL/PATH/TO/YOUR/` with the actual path to your project folder.
+**Important**: Replace `/FULL/PATH/TO/` with your actual path.
 
 #### Finding Your Full Path
 
-**On macOS/Linux:**
 ```bash
-cd /path/to/your/Trilogy-AI-CoE-MCP
+# In your project directory
 pwd
-```
-
-**On Windows:**
-```cmd
-cd C:\path\to\your\Trilogy-AI-CoE-MCP
-cd
+echo "$(pwd)/mcp-remote-client.js"
 ```
 
 ### For Cursor
 
-1. **Open Cursor**
-2. **Go to Settings** (Cmd/Ctrl + ,)
-3. **Search for "MCP"** in settings
-4. **Add the same configuration** as Claude Desktop above
+1. **Find your Cursor MCP config**:
+   - **Location**: `~/.cursor/mcp.json`
 
-### For Windsurf
+2. **Edit `mcp.json`** (create if it doesn't exist):
 
-1. **Open Windsurf**
-2. **Access MCP Settings** (check documentation for your version)
-3. **Add the server configuration** using the same format
+```json
+{
+  "mcpServers": {
+    "trilogy-ai-coe": {
+      "command": "node",
+      "args": ["/FULL/PATH/TO/Trilogy-AI-CoE-MCP-Remote/mcp-remote-client.js"]
+    }
+  }
+}
+```
 
-## Step 6: Restart and Test
+### For ChatGPT (Beta)
+
+ChatGPT uses the HTTP endpoint directly:
+
+1. **Go to ChatGPT Settings → Connectors**
+2. **Add MCP Server**:
+   - **Name**: `Trilogy AI CoE MCP Server`
+   - **URL**: `https://ai-coe-mcp.latentgenius.ai/mcp`
+   - **Authentication**: `No authentication`
+
+*Note: ChatGPT's MCP support is still in beta and may not work reliably.*
+
+## Step 3: Test the Connection
 
 1. **Restart your AI assistant** completely (quit and reopen)
-2. **Test the integration** by asking:
-   - "List the latest articles from the AI CoE"
-   - "Show me all authors"
-   - "What topics are covered?"
-   - "Read the article about AI strategy"
+2. **Test with these queries**:
+
+```
+Search for articles about agentic frameworks
+```
+
+```
+Show me the 5 most recent articles
+```
+
+```
+Find articles by David Proctor
+```
+
+## Available Tools
+
+Once connected, your AI assistant can use these tools:
+
+### 🔍 `search`
+Search through Trilogy AI CoE articles by keywords, topics, or authors.
+
+**Example**: "Search for articles about machine learning best practices"
+
+### 📋 `list_recent`
+Get the latest articles sorted by publication date.
+
+**Example**: "Show me the 10 most recent articles"
+
+### 📖 `fetch`
+Retrieve full article content by ID for detailed analysis.
+
+**Example**: "Fetch the full content of article-4"
+
+## Architecture: How It Works
+
+```
+    🌐 Remote MCP Server (Cloud)
+    ai-coe-mcp.latentgenius.ai
+              │
+              │ HTTPS
+              │
+    ┌─────────┼─────────┐
+    │         │         │
+    ▼         ▼         ▼
+  Claude    Cursor   ChatGPT
+ (client)  (client)  (direct)
+```
+
+- **Remote Server**: Runs in the cloud, always available
+- **Local Client**: Bridges MCP protocol to HTTP calls
+- **Universal**: Same server, different connection methods
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### 1. "Command not found" or "Module not found"
+#### 1. "No tools available" or "MCP server not found"
 
-**Solution**: Ensure Node.js 18+ is installed and the path in your configuration is correct.
+**Solutions**:
+- Verify the path to `mcp-remote-client.js` is correct and absolute
+- Ensure Node.js 18+ is installed: `node --version`
+- Restart your AI assistant completely
+- Check that the file has execute permissions: `chmod +x mcp-remote-client.js`
 
-```bash
-# Check Node.js version
-node --version
+#### 2. "Connection failed" or "Server unreachable"
 
-# Should show v18.0.0 or higher
-```
+**Solutions**:
+- Test the server directly: `curl https://ai-coe-mcp.latentgenius.ai/health`
+- Check your internet connection
+- Verify no firewall is blocking the connection
 
-#### 2. "No articles found"
+#### 3. "Module not found" errors
 
-**Solution**: Check your internet connection and Substack URL.
+**Solutions**:
+- Run `npm install` in the project directory
+- Ensure you're using the correct Node.js version
+- Check that all dependencies are installed
 
-```bash
-# Test the feed URL manually
-curl https://trilogyai.substack.com/feed
-```
+#### 4. Claude Desktop config issues
 
-#### 3. "Permission denied"
+**Solutions**:
+- Verify config file location (macOS: `~/Library/Application Support/Claude/`)
+- Ensure JSON syntax is valid
+- Use absolute paths, not relative paths
+- Restart Claude Desktop after config changes
 
-**Solution**: Ensure the server file has execute permissions.
+#### 5. Cursor MCP config issues
 
-```bash
-# On macOS/Linux
-chmod +x dist/index.js
-```
-
-#### 4. Server won't start
-
-**Solution**: Run in debug mode to see detailed error messages.
-
-```bash
-# Set DEBUG=true in your .env file, then test
-DEBUG=true npm test
-```
-
-#### 5. "ReferenceError: ReadableStream is not defined" or similar web API errors
-
-**Solution**: This is automatically handled by the included polyfill, but if you encounter this:
-
-1. Ensure you're using Node.js 18+ 
-2. Verify the `src/polyfill.js` file exists
-3. Check that the polyfill import is the first line in `src/index.ts`
-
-This error typically occurs with the `cheerio` or `undici` dependencies that require web APIs not available in all Node.js environments.
+**Solutions**:
+- Check config file location: `~/.cursor/mcp.json`
+- Create the file if it doesn't exist
+- Ensure JSON syntax is valid
+- Restart Cursor after config changes
 
 ### Debug Mode
 
-To enable detailed logging:
+To see detailed connection logs, check your AI assistant's developer console or logs.
 
-1. Edit your `.env` file:
-   ```env
-   DEBUG=true
-   ```
+### Test the Server Directly
 
-2. Or set it in your AI assistant configuration:
-   ```json
-   {
-     "mcpServers": {
-       "trilogy-ai-coe": {
-         "command": "node",
-         "args": ["/path/to/dist/index.js"],
-         "env": {
-           "SUBSTACK_FEED_URL": "https://trilogyai.substack.com",
-           "DEBUG": "true"
-         }
-       }
-     }
-   }
-   ```
-
-### Getting Help
-
-If you encounter issues:
-
-1. **Check the logs** in your AI assistant's developer console
-2. **Run the test script** with debug mode enabled
-3. **Verify all paths** are correct and absolute
-4. **Ensure Node.js version** is 18 or higher
-5. **Check internet connectivity** to Substack
-
-## Advanced Configuration
-
-### Custom Substack Feed
-
-To use a different Substack feed:
-
-1. Update the `SUBSTACK_FEED_URL` in your `.env` file
-2. Rebuild the server: `npm run build`
-3. Restart your AI assistant
-
-### Development Mode
-
-For development and testing:
+You can test the remote server directly:
 
 ```bash
-# Run in watch mode (auto-rebuilds on changes)
-npm run dev
+# Health check
+curl https://ai-coe-mcp.latentgenius.ai/health
+
+# List available tools
+curl https://ai-coe-mcp.latentgenius.ai/tools
+
+# Test search
+curl -X POST https://ai-coe-mcp.latentgenius.ai/tools/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "agentic frameworks"}'
 ```
 
-### Production Deployment
+## Quick Setup Script
 
-For production use:
+For easy demo preparation, use our setup script:
 
-1. Set `DEBUG=false` in your environment
-2. Consider using a process manager like PM2
-3. Set up proper logging and monitoring
+```bash
+# Run the demo prep script (if available)
+./demo-prep.sh
+```
+
+This script will:
+- Backup your existing MCP configurations
+- Create clean configs for demo
+- Verify the server is working
+- Provide restore instructions
 
 ## Verification
 
-After successful installation, you should be able to:
+After successful setup, you should be able to:
 
-✅ Ask your AI assistant to list articles  
-✅ Filter articles by author or topic  
-✅ Read full article content  
-✅ Browse available authors and topics  
+✅ Search for articles by keywords  
+✅ Get recent articles with publication dates  
+✅ Fetch full article content  
+✅ Find articles by specific authors  
+✅ Use the same tools across different AI assistants  
+
+## Key Benefits
+
+### 🌐 **No Local Server Required**
+- Remote server is always running
+- No installation or maintenance needed
+- Automatic updates and improvements
+
+### 🔄 **Universal Compatibility**
+- Same server works with multiple AI assistants
+- Each client uses their preferred integration method
+- Future-proof: new AI assistants work immediately
+
+### ⚡ **Production Ready**
+- Hosted on AWS with high availability
+- Built-in caching and error handling
+- Real-time access to Trilogy AI CoE content
 
 ## Next Steps
 
 - Explore the available tools and their capabilities
-- Customize the server for your specific needs
-- Consider contributing improvements back to the project
+- Try different search queries to find relevant content
+- Use the `fetch` tool to get complete article content
+- Check out our [UNIVERSAL_SETUP.md](./UNIVERSAL_SETUP.md) for more examples
 
 ## Support
 
 For additional support:
 - Check the main [README.md](./README.md)
-- Review the [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
-- Open an issue on GitHub 
+- Test the server health: `https://ai-coe-mcp.latentgenius.ai/health`
+- Review the [CHATGPT_CONNECTOR_SETUP.md](./CHATGPT_CONNECTOR_SETUP.md) for ChatGPT-specific setup
+- Open an issue on GitHub
+
+---
+
+**🌟 This demonstrates the true power of MCP: write once, use everywhere! 🌟** 
