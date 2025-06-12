@@ -307,6 +307,60 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: 'list_recent',
+        description: 'Lists the most recent Trilogy AI Center of Excellence articles without any keyword filtering.\n\nPurpose:\n1. Get the latest articles from the Trilogy AI CoE Substack in chronological order\n2. Returns articles sorted by publication date (newest first)\n3. No keyword filtering - shows all recent articles regardless of content\n4. Useful for getting an overview of recent publications\n\nUsage:\n1. Specify the number of articles to return (default: 10, max: 20)\n2. Articles are returned with full metadata including publication dates\n3. Use this when you want to see what\'s been published recently\n4. Follow up with the fetch tool to get full article content\n\nResponse Format:\n• Returns articles sorted by publication date (newest first)\n• Each article includes: id, title, excerpt, author, publication date, and URL\n• Perfect for discovering recent content without knowing specific keywords',
+        input_schema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Number of recent articles to return (default: 10, max: 20)',
+              minimum: 1,
+              maximum: 20
+            }
+          }
+        },
+        output_schema: {
+          type: 'object',
+          properties: {
+            results: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: {
+                    type: 'string',
+                    description: 'ID of the resource.'
+                  },
+                  title: {
+                    type: 'string',
+                    description: 'Title or headline of the resource.'
+                  },
+                  text: {
+                    type: 'string',
+                    description: 'Text snippet or summary from the resource.'
+                  },
+                  url: {
+                    type: ['string', 'null'],
+                    description: 'URL of the resource. Optional but needed for citations to work.'
+                  },
+                  author: {
+                    type: 'string',
+                    description: 'Author of the article.'
+                  },
+                  published_date: {
+                    type: 'string',
+                    description: 'Publication date of the article.'
+                  }
+                },
+                required: ['id', 'title', 'text', 'author', 'published_date']
+              }
+            }
+          },
+          required: ['results']
+        }
+      },
+      {
         name: 'fetch',
         description: 'Retrieves detailed content for a specific resource identified by the given ID.\n\nPurpose:\n1. Get complete article content including full text, metadata, and citations\n2. Use after search to get detailed information about specific articles\n3. Provides structured data with title, content, URL, and metadata\n\nUsage:\n1. Always use this tool after search to get full article content\n2. The ID must be from a search result\n3. Returns complete article text for analysis and citation\n4. Includes author, publication date, and source URL for proper attribution\n\nResponse Format:\n• id: Unique identifier for the article\n• title: Full article headline\n• text: Complete article content (up to 2000 characters)\n• url: Source URL for citations and further reading\n• metadata: Author, publication date, and excerpt information',
         input_schema: {
@@ -401,6 +455,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         isError: true
         };
       }
+  }
+
+  if (name === 'list_recent') {
+    try {
+      const { limit = 10 } = args as { limit?: number };
+      const maxLimit = Math.min(limit, 20); // Cap at 20 articles
+      
+      // Fetch articles from Substack
+      const articles = await fetchSubstackFeed();
+      
+      // Sort articles by publication date (newest first)
+      const sortedArticles = articles
+        .filter(article => article.publishedDate) // Only include articles with dates
+        .sort((a, b) => {
+          const dateA = new Date(a.publishedDate).getTime();
+          const dateB = new Date(b.publishedDate).getTime();
+          return dateB - dateA; // Newest first
+        })
+        .slice(0, maxLimit) // Limit results
+        .map(article => ({
+          id: article.id,
+          title: article.title,
+          text: article.excerpt || article.title,
+          url: article.url,
+          author: article.author,
+          published_date: article.publishedDate
+        }));
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ results: sortedArticles })
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Failed to list recent articles',
+              message: error instanceof Error ? error.message : 'Unknown error'
+            })
+          }
+        ],
+        isError: true
+      };
+    }
   }
 
   if (name === 'fetch') {
@@ -587,6 +691,60 @@ app.get('/tools', async (req, res) => {
         }
       },
       {
+        name: 'list_recent',
+        description: 'Lists the most recent Trilogy AI Center of Excellence articles without any keyword filtering.\n\nPurpose:\n1. Get the latest articles from the Trilogy AI CoE Substack in chronological order\n2. Returns articles sorted by publication date (newest first)\n3. No keyword filtering - shows all recent articles regardless of content\n4. Useful for getting an overview of recent publications\n\nUsage:\n1. Specify the number of articles to return (default: 10, max: 20)\n2. Articles are returned with full metadata including publication dates\n3. Use this when you want to see what\'s been published recently\n4. Follow up with the fetch tool to get full article content\n\nResponse Format:\n• Returns articles sorted by publication date (newest first)\n• Each article includes: id, title, excerpt, author, publication date, and URL\n• Perfect for discovering recent content without knowing specific keywords',
+        input_schema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Number of recent articles to return (default: 10, max: 20)',
+              minimum: 1,
+              maximum: 20
+            }
+          }
+        },
+        output_schema: {
+          type: 'object',
+          properties: {
+            results: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: {
+                    type: 'string',
+                    description: 'ID of the resource.'
+                  },
+                  title: {
+                    type: 'string',
+                    description: 'Title or headline of the resource.'
+                  },
+                  text: {
+                    type: 'string',
+                    description: 'Text snippet or summary from the resource.'
+                  },
+                  url: {
+                    type: ['string', 'null'],
+                    description: 'URL of the resource. Optional but needed for citations to work.'
+                  },
+                  author: {
+                    type: 'string',
+                    description: 'Author of the article.'
+                  },
+                  published_date: {
+                    type: 'string',
+                    description: 'Publication date of the article.'
+                  }
+                },
+                required: ['id', 'title', 'text', 'author', 'published_date']
+              }
+            }
+          },
+          required: ['results']
+        }
+      },
+      {
         name: 'fetch',
         description: 'Retrieves detailed content for a specific resource identified by the given ID.',
         input_schema: {
@@ -666,6 +824,34 @@ app.post('/tools/:toolName', async (req, res) => {
           }));
 
         result = { results };
+        break;
+      }
+
+      case 'list_recent': {
+        const { limit = 10 } = args;
+        const maxLimit = Math.min(limit, 20); // Cap at 20 articles
+        
+        const articles = await fetchSubstackFeed();
+        
+        // Sort articles by publication date (newest first)
+        const sortedArticles = articles
+          .filter(article => article.publishedDate) // Only include articles with dates
+          .sort((a, b) => {
+            const dateA = new Date(a.publishedDate).getTime();
+            const dateB = new Date(b.publishedDate).getTime();
+            return dateB - dateA; // Newest first
+          })
+          .slice(0, maxLimit) // Limit results
+          .map(article => ({
+            id: article.id,
+            title: article.title,
+            text: article.excerpt || article.title,
+            url: article.url,
+            author: article.author,
+            published_date: article.publishedDate
+          }));
+
+        result = { results: sortedArticles };
         break;
       }
 
@@ -835,6 +1021,60 @@ app.post('/mcp', async (req, res) => {
               }
             },
             {
+              name: 'list_recent',
+              description: 'Lists the most recent Trilogy AI Center of Excellence articles without any keyword filtering.\n\nPurpose:\n1. Get the latest articles from the Trilogy AI CoE Substack in chronological order\n2. Returns articles sorted by publication date (newest first)\n3. No keyword filtering - shows all recent articles regardless of content\n4. Useful for getting an overview of recent publications\n\nUsage:\n1. Specify the number of articles to return (default: 10, max: 20)\n2. Articles are returned with full metadata including publication dates\n3. Use this when you want to see what\'s been published recently\n4. Follow up with the fetch tool to get full article content\n\nResponse Format:\n• Returns articles sorted by publication date (newest first)\n• Each article includes: id, title, excerpt, author, publication date, and URL\n• Perfect for discovering recent content without knowing specific keywords',
+              input_schema: {
+                type: 'object',
+                properties: {
+                  limit: {
+                    type: 'number',
+                    description: 'Number of recent articles to return (default: 10, max: 20)',
+                    minimum: 1,
+                    maximum: 20
+                  }
+                }
+              },
+              output_schema: {
+                type: 'object',
+                properties: {
+                  results: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: {
+                          type: 'string',
+                          description: 'ID of the resource.'
+                        },
+                        title: {
+                          type: 'string',
+                          description: 'Title or headline of the resource.'
+                        },
+                        text: {
+                          type: 'string',
+                          description: 'Text snippet or summary from the resource.'
+                        },
+                        url: {
+                          type: ['string', 'null'],
+                          description: 'URL of the resource. Optional but needed for citations to work.'
+                        },
+                        author: {
+                          type: 'string',
+                          description: 'Author of the article.'
+                        },
+                        published_date: {
+                          type: 'string',
+                          description: 'Publication date of the article.'
+                        }
+                      },
+                      required: ['id', 'title', 'text', 'author', 'published_date']
+                    }
+                  }
+                },
+                required: ['results']
+              }
+            },
+            {
               name: 'fetch',
               description: 'Retrieves detailed content for a specific resource identified by the given ID.',
               input_schema: {
@@ -910,6 +1150,41 @@ app.post('/mcp', async (req, res) => {
             {
               type: 'text',
                   text: JSON.stringify({ results: matchingResults })
+                }
+              ]
+            };
+            break;
+          }
+
+          case 'list_recent': {
+            const { limit = 10 } = args || {};
+            const maxLimit = Math.min(limit, 20); // Cap at 20 articles
+            
+            const articles = await fetchSubstackFeed();
+            
+            // Sort articles by publication date (newest first)
+            const sortedArticles = articles
+              .filter(article => article.publishedDate) // Only include articles with dates
+              .sort((a, b) => {
+                const dateA = new Date(a.publishedDate).getTime();
+                const dateB = new Date(b.publishedDate).getTime();
+                return dateB - dateA; // Newest first
+              })
+              .slice(0, maxLimit) // Limit results
+              .map(article => ({
+                id: article.id,
+                title: article.title,
+                text: article.excerpt || article.title,
+                url: article.url,
+                author: article.author,
+                published_date: article.publishedDate
+              }));
+
+            result = {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ results: sortedArticles })
                 }
               ]
             };
