@@ -345,8 +345,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { query } = args as { query: string };
       
       // Fetch articles from Substack
-      const articles = await fetchSubstackFeed();
-      
+        const articles = await fetchSubstackFeed();
+        
       // Search through articles
       const searchTerms = query.toLowerCase().split(' ');
       const results = articles
@@ -371,19 +371,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ]
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({ 
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
               error: 'Failed to search articles',
               message: error instanceof Error ? error.message : 'Unknown error'
             })
           }
         ],
         isError: true
-      };
-    }
+        };
+      }
   }
 
   if (name === 'fetch') {
@@ -391,8 +391,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { id } = args as { id: string };
       
       // Fetch articles from Substack
-      const articles = await fetchSubstackFeed();
-      
+        const articles = await fetchSubstackFeed();
+        
       // Find the specific article
       const article = articles.find(a => a.id === id);
       
@@ -445,11 +445,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           excerpt: article.excerpt || ''
         }
       };
-
-      return {
-        content: [
-          {
-            type: 'text',
+        
+        return {
+          content: [
+            {
+              type: 'text',
             text: JSON.stringify(result)
           }
         ]
@@ -863,8 +863,8 @@ app.post('/mcp', async (req, res) => {
           ],
         };
         break;
-      }
-
+        }
+        
       case 'tools/call': {
         const { name: toolName, arguments: args } = params;
         
@@ -889,9 +889,9 @@ app.post('/mcp', async (req, res) => {
               }));
 
             result = {
-              content: [
-                {
-                  type: 'text',
+          content: [
+            {
+              type: 'text',
                   text: JSON.stringify({ results: matchingResults })
                 }
               ]
@@ -1014,15 +1014,15 @@ app.post('/mcp', async (req, res) => {
 async function main() {
   if (MODE === 'stdio') {
     // Traditional MCP server mode for local usage
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
     debugLog('Trilogy AI CoE MCP Server started successfully (stdio mode)');
   } else {
     // HTTP server mode for remote usage
     app.listen(PORT, () => {
       console.log(`Trilogy AI CoE MCP Remote Server running on port ${PORT}`);
       debugLog('Server started successfully (HTTP mode)');
-      debugLog(`Substack feed URL: ${SUBSTACK_FEED_URL}`);
+  debugLog(`Substack feed URL: ${SUBSTACK_FEED_URL}`);
     });
   }
 }
@@ -1030,4 +1030,4 @@ async function main() {
 main().catch((error) => {
   console.error('Failed to start server:', error);
   process.exit(1);
-});
+}); 
