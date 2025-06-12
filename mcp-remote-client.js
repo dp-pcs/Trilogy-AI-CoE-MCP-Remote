@@ -40,24 +40,72 @@ const server = new Server(
   }
 );
 
+// Function to convert ChatGPT format tools to Claude format
+function convertToolsForClaude(tools) {
+  return tools.map(tool => {
+    const claudeTool = {
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.input_schema // Convert input_schema to inputSchema
+    };
+    
+    // Remove output_schema as Claude doesn't use it
+    // Claude infers output format from the tool implementation
+    
+    return claudeTool;
+  });
+}
+
 // Fetch tools from remote server
 async function fetchRemoteTools() {
   try {
-    console.error(`Attempting to fetch tools from ${REMOTE_SERVER_URL}/tools`);
+    console.error('Attempting to fetch tools from', REMOTE_SERVER_URL + '/tools');
     const response = await fetchFunction(`${REMOTE_SERVER_URL}/tools`);
     const data = await response.json();
-    console.error(`Successfully fetched ${data.tools?.length || 0} tools`);
-    return data.tools || [];
+    
+    if (data.tools && Array.isArray(data.tools)) {
+      console.error(`Successfully fetched ${data.tools.length} tools`);
+      // Convert ChatGPT format to Claude format
+      const claudeTools = convertToolsForClaude(data.tools);
+      console.error(`Fetched ${claudeTools.length} tools from remote server`);
+      return claudeTools;
+    } else {
+      console.error('Invalid tools response format:', data);
+      return [];
+    }
   } catch (error) {
     console.error('Failed to fetch tools from remote server:', error);
     return [];
   }
 }
 
-// Execute tool on remote server
-async function executeRemoteTool(toolName, args) {
+// Initialize request handler
+server.setRequestHandler(InitializeRequestSchema, async (request) => {
+  return {
+    protocolVersion: '2024-11-05',
+    capabilities: {
+      tools: {},
+    },
+    serverInfo: {
+      name: 'trilogy-ai-coe-remote-client',
+      version: '1.0.0',
+    },
+  };
+});
+
+// List tools request handler
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  const tools = await fetchRemoteTools();
+  return { tools };
+});
+
+// Call tool request handler
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  
   try {
-    const response = await fetchFunction(`${REMOTE_SERVER_URL}/tools/${toolName}`, {
+    // Forward the tool call to the remote server
+    const response = await fetchFunction(`${REMOTE_SERVER_URL}/tools/${name}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -69,46 +117,14 @@ async function executeRemoteTool(toolName, args) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    return await response.json();
-  } catch (error) {
-    console.error(`Failed to execute tool ${toolName}:`, error);
-    throw error;
-  }
-}
-
-// Handle initialization
-server.setRequestHandler(InitializeRequestSchema, async () => {
-  return {
-    protocolVersion: "2024-11-05",
-    capabilities: {
-      tools: {},
-    },
-    serverInfo: {
-      name: "trilogy-ai-coe-remote-client",
-      version: "1.0.0",
-    },
-  };
-});
-
-// Handle list tools request
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools = await fetchRemoteTools();
-  console.error(`Fetched ${tools.length} tools from remote server`);
-  return { tools };
-});
-
-// Handle tool execution
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-  
-  try {
-    const result = await executeRemoteTool(name, args || {});
+    const result = await response.json();
     
+    // Return the result in MCP format
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(result, null, 2),
+          text: JSON.stringify(result),
         },
       ],
     };
@@ -117,7 +133,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: 'text',
-          text: `Error: ${error.message}`,
+          text: JSON.stringify({
+            error: 'Failed to execute tool',
+            message: error.message,
+          }),
         },
       ],
       isError: true,
@@ -127,12 +146,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
+  console.error('Trilogy AI CoE Remote MCP Client started');
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Trilogy AI CoE Remote MCP Client started');
 }
 
 main().catch((error) => {
-  console.error('Failed to start server:', error);
+  console.error('Failed to start MCP client:', error);
   process.exit(1);
 }); 
